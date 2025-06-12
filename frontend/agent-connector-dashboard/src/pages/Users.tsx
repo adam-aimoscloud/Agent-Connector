@@ -53,16 +53,6 @@ const Users: React.FC = () => {
   });
   const [form] = Form.useForm();
 
-  // Test Modal.error functionality
-  const testModalError = () => {
-    modal.error({
-      title: 'Test Error Modal',
-      content: 'This is a test error modal to verify that Modal.error functionality is working properly.',
-      okText: 'OK',
-      width: 500,
-    });
-  };
-
   // Role options
   const roleOptions = [
     { value: 'admin', label: 'Administrator', color: 'red' },
@@ -199,12 +189,10 @@ const Users: React.FC = () => {
       // Show error modal
       modal.error({
         title: errorMessage,
-        content: errorDetail || 'Please check your input information or contact the system administrator.',
+        content: errorDetail || 'An unexpected error occurred. Please try again.',
         okText: 'OK',
         width: 500,
       });
-      
-      console.log('modal.error called');
     }
   };
 
@@ -230,7 +218,7 @@ const Users: React.FC = () => {
       // Show error modal
       modal.error({
         title: 'Failed to Delete User',
-        content: errorDetail || 'An error occurred while deleting the user. Please try again later or contact the system administrator.',
+        content: errorDetail || 'Unable to delete user. Please try again.',
         okText: 'OK',
         width: 500,
       });
@@ -240,11 +228,11 @@ const Users: React.FC = () => {
   // Update user status
   const handleUpdateStatus = async (userId: number, status: string) => {
     try {
-      await userApi.updateUserStatus(userId, status);
-      message.success('Status updated successfully');
+      await userApi.updateUser(userId, { status });
+      message.success('User status updated successfully');
       loadUsers(pagination.current, pagination.pageSize, searchText);
     } catch (error: any) {
-      console.error('Update status failed:', error);
+      console.error('Update user status failed:', error);
       
       // Get detailed error information
       let errorDetail = '';
@@ -258,8 +246,8 @@ const Users: React.FC = () => {
       
       // Show error modal
       modal.error({
-        title: 'Failed to Update Status',
-        content: errorDetail || 'An error occurred while updating user status. Please try again later or contact the system administrator.',
+        title: 'Failed to Update User Status',
+        content: errorDetail || 'Unable to update user status. Please try again.',
         okText: 'OK',
         width: 500,
       });
@@ -272,110 +260,122 @@ const Users: React.FC = () => {
     setIsViewDrawerVisible(true);
   };
 
-  // Get role color
   const getRoleColor = (role: string) => {
-    const option = roleOptions.find(opt => opt.value === role);
-    return option?.color || 'default';
+    return roleOptions.find(opt => opt.value === role)?.color || 'default';
   };
 
-  // Get status color
   const getStatusColor = (status: string) => {
-    const option = statusOptions.find(opt => opt.value === status);
-    return option?.color || 'default';
+    return statusOptions.find(opt => opt.value === status)?.color || 'default';
   };
 
-  // Table column definitions
+  // Table columns
   const columns = [
     {
-      title: 'User',
+      title: 'Avatar',
+      dataIndex: 'avatar',
+      key: 'avatar',
+      width: 80,
+      render: (avatar: string, record: User) => (
+        <Avatar
+          size={40}
+          src={avatar}
+          icon={<UserOutlined />}
+          style={{ backgroundColor: '#1890ff' }}
+        />
+      ),
+    },
+    {
+      title: 'Username',
       dataIndex: 'username',
       key: 'username',
-      render: (text: string, record: User) => (
-        <Space>
-          <Avatar icon={<UserOutlined />} src={record.avatar} />
-          <div>
-            <div style={{ fontWeight: 'bold' }}>{record.full_name}</div>
-            <div style={{ color: '#666', fontSize: '12px' }}>@{text}</div>
-          </div>
-        </Space>
+      sorter: true,
+      render: (username: string) => (
+        <Text strong>{username}</Text>
       ),
+    },
+    {
+      title: 'Full Name',
+      dataIndex: 'full_name',
+      key: 'full_name',
+      sorter: true,
     },
     {
       title: 'Email',
       dataIndex: 'email',
       key: 'email',
+      sorter: true,
     },
     {
       title: 'Role',
       dataIndex: 'role',
       key: 'role',
-      render: (role: string) => {
-        const option = roleOptions.find(opt => opt.value === role);
-        return <Tag color={getRoleColor(role)}>{option?.label || role}</Tag>;
-      },
+      filters: roleOptions.map(opt => ({ text: opt.label, value: opt.value })),
+      render: (role: string) => (
+        <Tag color={getRoleColor(role)}>
+          {roleOptions.find(opt => opt.value === role)?.label || role}
+        </Tag>
+      ),
     },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      render: (status: string, record: User) => {
-        const option = statusOptions.find(opt => opt.value === status);
-        return (
-          <Select
-            value={status}
-            size="small"
-            style={{ width: 100 }}
-            onChange={(newStatus) => handleUpdateStatus(record.id, newStatus)}
-            disabled={!hasPermission('user_management')}
-          >
-            {statusOptions.map(opt => (
-              <Option key={opt.value} value={opt.value}>
-                <Tag color={opt.color} style={{ margin: 0 }}>
-                  {opt.label}
-                </Tag>
-              </Option>
-            ))}
-          </Select>
-        );
-      },
+      filters: statusOptions.map(opt => ({ text: opt.label, value: opt.value })),
+      render: (status: string, record: User) => (
+        <Select
+          value={status}
+          style={{ width: 120 }}
+          onChange={(newStatus) => handleUpdateStatus(record.id, newStatus)}
+          disabled={!hasPermission('user_management')}
+        >
+          {statusOptions.map(option => (
+            <Option key={option.value} value={option.value}>
+              <Tag color={option.color} style={{ margin: 0 }}>
+                {option.label}
+              </Tag>
+            </Option>
+          ))}
+        </Select>
+      ),
     },
     {
       title: 'Last Login',
       dataIndex: 'last_login',
       key: 'last_login',
-      render: (date: string) => date ? dayjs(date).format('YYYY-MM-DD HH:mm') : 'Never logged in',
+      sorter: true,
+      render: (lastLogin: string) => (
+        lastLogin ? dayjs(lastLogin).format('YYYY-MM-DD HH:mm') : 'Never'
+      ),
     },
     {
       title: 'Created At',
       dataIndex: 'created_at',
       key: 'created_at',
-      render: (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm'),
+      sorter: true,
+      render: (createdAt: string) => dayjs(createdAt).format('YYYY-MM-DD HH:mm'),
     },
     {
       title: 'Actions',
       key: 'actions',
       width: 200,
-      render: (text: any, record: User) => (
-        <Space>
+      render: (_: any, record: User) => (
+        <Space size="small">
           <Button
             type="text"
             icon={<EyeOutlined />}
             onClick={() => handleViewUser(record)}
-            size="small"
-          >
-            View
-          </Button>
+            title="View Details"
+          />
           <PermissionGuard permission="user_management">
             <Button
               type="text"
               icon={<EditOutlined />}
               onClick={() => handleOpenModal(record)}
-              size="small"
-            >
-              Edit
-            </Button>
+              title="Edit User"
+            />
             <Popconfirm
-              title="Are you sure you want to delete this user?"
+              title="Delete User"
+              description="Are you sure you want to delete this user?"
               onConfirm={() => handleDeleteUser(record.id)}
               okText="Yes"
               cancelText="No"
@@ -384,10 +384,8 @@ const Users: React.FC = () => {
                 type="text"
                 danger
                 icon={<DeleteOutlined />}
-                size="small"
-              >
-                Delete
-              </Button>
+                title="Delete User"
+              />
             </Popconfirm>
           </PermissionGuard>
         </Space>
@@ -396,7 +394,7 @@ const Users: React.FC = () => {
   ];
 
   return (
-    <div>
+    <div style={{ padding: '24px' }}>
       {contextHolder}
       {/* Page title */}
       <Row justify="space-between" align="middle" style={{ marginBottom: '24px' }}>
@@ -418,13 +416,6 @@ const Users: React.FC = () => {
                 Create User
               </Button>
             </PermissionGuard>
-            <Button
-              danger
-              onClick={testModalError}
-              style={{ backgroundColor: '#ff4d4f', borderColor: '#ff4d4f', color: 'white' }}
-            >
-              Test Error Modal
-            </Button>
           </Space>
         </Col>
       </Row>
