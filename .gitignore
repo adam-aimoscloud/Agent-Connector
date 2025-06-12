@@ -1,0 +1,16 @@
+coverage/
+coverage.html
+coverage.out
+go.sum
+logs
+*_SUMMARY.md
+bin
+.env
+*.backup
+node_modules
+package-lock.json
+USER_MANAGEMENT.md
+build
+backend/auth-api
+backend/control-flow-api
+backend/control-flow-api-mock
