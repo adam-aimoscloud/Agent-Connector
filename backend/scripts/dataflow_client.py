@@ -18,8 +18,8 @@ from enum import Enum
 class AgentType(Enum):
     """Agent type enumeration"""
     OPENAI = "openai"
-    DIFY = "dify"
-    CUSTOM = "custom"
+    DIFY_CHAT = "dify-chat"
+    DIFY_WORKFLOW = "dify-workflow"
 
 
 class ResponseMode(Enum):
@@ -99,7 +99,7 @@ class DataFlowClient:
     def health_check(self) -> Dict:
         """Check API health status"""
         try:
-            response = self.session.get(f"{self.base_url}/api/v1/dataflow/health")
+            response = self.session.get(f"{self.base_url}/api/v1/health")
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
@@ -125,7 +125,7 @@ class DataFlowClient:
         Returns:
             Response dict or iterator for streaming
         """
-        url = f"{self.base_url}/api/v1/dataflow/openai/chat/completions/{agent_id}"
+        url = f"{self.base_url}/api/v1/openai/chat/completions?agent_id={agent_id}"
         
         # Convert dataclass to dict and handle nested objects
         data = asdict(request)
@@ -146,10 +146,33 @@ class DataFlowClient:
         Returns:
             Response dict or iterator for streaming
         """
-        url = f"{self.base_url}/api/v1/dataflow/dify/chat-messages/{agent_id}"
+        url = f"{self.base_url}/api/v1/dify/chat-messages?agent_id={agent_id}"
         
         # Convert dataclass to dict
         data = asdict(request)
+        
+        if request.response_mode == "streaming":
+            return self._stream_request(url, data)
+        else:
+            return self._blocking_request(url, data)
+    
+    def chat_dify_workflow(self, agent_id: str, request: DifyRequest) -> Union[Dict, Iterator[Dict]]:
+        """
+        Send Dify workflow request
+        
+        Args:
+            agent_id: Agent ID
+            request: Dify request object
+            
+        Returns:
+            Response dict or iterator for streaming
+        """
+        url = f"{self.base_url}/api/v1/dify/workflows/run"
+        
+        # Convert dataclass to dict
+        data = asdict(request)
+        # Add agent_id to the request data
+        data['agent_id'] = agent_id
         
         if request.response_mode == "streaming":
             return self._stream_request(url, data)
@@ -167,7 +190,10 @@ class DataFlowClient:
         Returns:
             Response dict or iterator for streaming
         """
-        url = f"{self.base_url}/api/v1/dataflow/chat/{agent_id}"
+        url = f"{self.base_url}/api/v1/chat"
+        
+        # Add agent_id to the request data
+        data['agent_id'] = agent_id
         
         # Check if streaming is requested
         is_streaming = data.get('stream', False) or data.get('response_mode') == 'streaming'
@@ -253,9 +279,9 @@ def main():
     parser = argparse.ArgumentParser(description="Data Flow API Client")
     parser.add_argument("--base-url", default="http://localhost:8082", help="Base URL of the API")
     parser.add_argument("--api-key", required=True, help="API key for authentication")
-    parser.add_argument("--agent-id", required=True, help="Agent ID to use")
+    parser.add_argument("--agent-id", help="Agent ID to use")
     parser.add_argument("--user-id", help="User ID for rate limiting")
-    parser.add_argument("--type", choices=["openai", "dify", "universal"], default="dify", 
+    parser.add_argument("--type", choices=["openai", "dify-chat", "dify-workflow", "universal"], default="dify-chat", 
                        help="Request type")
     parser.add_argument("--stream", action="store_true", help="Enable streaming mode")
     parser.add_argument("--query", help="Query text (for Dify)")
@@ -288,8 +314,8 @@ def main():
     print()
     
     try:
-        if args.type == "dify":
-            # Dify request
+        if args.type == "dify-chat":
+            # Dify Chat request
             query = args.query or "Hello! This is a test message from the Python client. Can you respond?"
             request = DifyRequest(
                 query=query,
@@ -299,13 +325,32 @@ def main():
                 response_mode="streaming" if args.stream else "blocking"
             )
             
-            print(f"📝 Dify Request:")
+            print(f"📝 Dify Chat Request:")
             print(f"   Query: {request.query}")
             print(f"   User: {request.user}")
             print(f"   Mode: {request.response_mode}")
             print()
             
             response = client.chat_dify(args.agent_id, request)
+            
+        elif args.type == "dify-workflow":
+            # Dify Workflow request
+            query = args.query or "Hello! This is a test message from the Python client. Can you respond?"
+            request = DifyRequest(
+                query=query,
+                user=f"python-client-{int(time.time())}",
+                conversation_id="",
+                inputs={"source": "python-client"},
+                response_mode="streaming" if args.stream else "blocking"
+            )
+            
+            print(f"📝 Dify Workflow Request:")
+            print(f"   Query: {request.query}")
+            print(f"   User: {request.user}")
+            print(f"   Mode: {request.response_mode}")
+            print()
+            
+            response = client.chat_dify_workflow(args.agent_id, request)
             
         elif args.type == "openai":
             # OpenAI request
@@ -346,7 +391,7 @@ def main():
             response = client.chat_universal(args.agent_id, data)
         
         # Handle response
-        if args.stream or (args.type == "dify" and args.stream):
+        if args.stream or (args.type in ["dify-chat", "dify-workflow"] and args.stream):
             print("🌊 Streaming Response:")
             print("-" * 50)
             full_answer = ""

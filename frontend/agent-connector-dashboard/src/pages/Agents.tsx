@@ -57,8 +57,8 @@ const Agents: React.FC = () => {
   // Agent type options
   const typeOptions = [
     { value: 'openai', label: 'OpenAI', color: 'green', icon: '🤖' },
-    { value: 'openai_compatible', label: 'OpenAI Compatible', color: 'cyan', icon: '🔗' },
-    { value: 'dify', label: 'Dify', color: 'blue', icon: '🔧' },
+    { value: 'dify-chat', label: 'Dify Chat', color: 'blue', icon: '💬' },
+    { value: 'dify-workflow', label: 'Dify Workflow', color: 'purple', icon: '⚙️' },
   ];
 
   // Response format options

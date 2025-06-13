@@ -2,6 +2,7 @@ package controlflow
 
 import (
 	"agent-connector/internal"
+	"agent-connector/pkg/types"
 	"time"
 )
 
@@ -53,7 +54,7 @@ type SystemConfigResponse struct {
 // AgentRequest agent configuration request structure
 type AgentRequest struct {
 	Name             string `json:"name" binding:"required"`
-	Type             string `json:"type" binding:"required,oneof=openai openai_compatible dify"`
+	Type             string `json:"type" binding:"required,oneof=openai dify-chat dify-workflow"`
 	URL              string `json:"url" binding:"required,url"`
 	SourceAPIKey     string `json:"source_api_key" binding:"required"`
 	QPS              int    `json:"qps" binding:"min=1"`
@@ -65,9 +66,10 @@ type AgentRequest struct {
 
 // AgentResponse agent configuration response structure
 type AgentResponse struct {
-	ID               uint      `json:"id"`
-	Name             string    `json:"name"`
-	Type             string    `json:"type"`
+	ID   uint   `json:"id"`
+	Name string `json:"name"`
+	Type string `json:"type"`
+
 	URL              string    `json:"url"`
 	SourceAPIKey     string    `json:"source_api_key,omitempty"` // in some cases, it may be necessary to hide
 	ConnectorAPIKey  string    `json:"connector_api_key"`
@@ -84,7 +86,7 @@ type AgentResponse struct {
 // AgentUpdateRequest agent update request structure
 type AgentUpdateRequest struct {
 	Name             *string `json:"name,omitempty"`
-	Type             *string `json:"type,omitempty" binding:"omitempty,oneof=openai openai_compatible dify"`
+	Type             *string `json:"type,omitempty" binding:"omitempty,oneof=openai dify-chat dify-workflow"`
 	URL              *string `json:"url,omitempty" binding:"omitempty,url"`
 	SourceAPIKey     *string `json:"source_api_key,omitempty"`
 	QPS              *int    `json:"qps,omitempty" binding:"omitempty,min=1"`
@@ -129,9 +131,10 @@ func ConvertToInternalSystemConfig(req *SystemConfigRequest) *internal.SystemCon
 // ConvertFromInternalAgent convert from internal model to response structure
 func ConvertFromInternalAgent(agent *internal.Agent, hideSecrets bool) *AgentResponse {
 	response := &AgentResponse{
-		ID:               agent.ID,
-		Name:             agent.Name,
-		Type:             string(agent.Type),
+		ID:   agent.ID,
+		Name: agent.Name,
+		Type: string(agent.Type),
+
 		URL:              agent.URL,
 		ConnectorAPIKey:  agent.ConnectorAPIKey,
 		AgentID:          agent.AgentID,
@@ -156,7 +159,7 @@ func ConvertFromInternalAgent(agent *internal.Agent, hideSecrets bool) *AgentRes
 func ConvertToInternalAgent(req *AgentRequest) *internal.Agent {
 	return &internal.Agent{
 		Name:             req.Name,
-		Type:             internal.AgentType(req.Type),
+		Type:             types.AgentType(req.Type),
 		URL:              req.URL,
 		SourceAPIKey:     req.SourceAPIKey,
 		QPS:              req.QPS,
@@ -173,7 +176,7 @@ func UpdateInternalAgentFromRequest(agent *internal.Agent, req *AgentUpdateReque
 		agent.Name = *req.Name
 	}
 	if req.Type != nil {
-		agent.Type = internal.AgentType(*req.Type)
+		agent.Type = types.AgentType(*req.Type)
 	}
 	if req.URL != nil {
 		agent.URL = *req.URL

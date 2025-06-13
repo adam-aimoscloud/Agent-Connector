@@ -4,6 +4,7 @@ import (
 	"agent-connector/api/dataflow"
 	"agent-connector/config"
 	"agent-connector/internal"
+	"agent-connector/pkg/ratelimiter"
 	"context"
 	"fmt"
 	"log"
@@ -25,7 +26,7 @@ func main() {
 
 	fmt.Println("🚀 Starting Data Flow API Server...")
 	fmt.Println("===============================================")
-	fmt.Printf("📊 Service: %s Data Flow API\n", cfg.App.Name)
+	fmt.Printf("📊 Service: %s Data Flow API (New Backend Architecture)\n", cfg.App.Name)
 	fmt.Printf("🌐 Purpose: Unified agent access for downstream applications\n")
 	fmt.Printf("🔗 Server: %s\n", cfg.GetServiceAddr("data"))
 	fmt.Printf("📝 Environment: %s\n", cfg.App.Environment)
@@ -46,45 +47,69 @@ func main() {
 	}
 	fmt.Println("✅ Database initialized successfully")
 
+	// Initialize Redis rate limiter
+	rateLimiterConfig := &ratelimiter.Config{
+		Rate:  float64(cfg.Security.DefaultRateLimit),
+		Burst: cfg.Security.DefaultRateLimit * 2,
+		Redis: &ratelimiter.RedisConfig{
+			Addr:            cfg.Redis.Addr,
+			Password:        cfg.Redis.Password,
+			DB:              cfg.Redis.DB,
+			PoolSize:        10,
+			MinIdleConns:    2,
+			ConnMaxIdleTime: 30 * time.Minute,
+		},
+	}
+
+	redisRateLimiter, err := ratelimiter.NewRedisRateLimiter(rateLimiterConfig)
+	if err != nil {
+		log.Fatalf("❌ Failed to initialize Redis rate limiter: %v", err)
+	}
+	fmt.Println("✅ Redis rate limiter initialized successfully")
+
 	// Create Gin router
 	router := gin.New()
 
-	// Set data flow API routes and middlewares
-	routerConfig := &dataflow.DataFlowRouterConfig{
-		EnableCORS:         cfg.API.EnableCORS,
-		EnableLogging:      true,
-		EnableRecovery:     true,
-		MaxRequestBodySize: cfg.API.MaxRequestBodySize,
-		APIRateLimit:       cfg.Security.DefaultRateLimit,
-	}
+	// Setup middlewares
+	setupMiddlewares(router, cfg)
 
-	dataflow.SetupDataFlowRoutesWithConfig(router, routerConfig)
+	// Setup new Backend routes
+	dataflow.SetupBackendRoutes(router, redisRateLimiter)
+	fmt.Println("✅ New Backend architecture routes initialized")
+
+	// Setup legacy routes for backward compatibility
+	dataflow.SetupLegacyRoutes(router, redisRateLimiter)
+	fmt.Println("✅ Legacy routes initialized for backward compatibility")
 
 	// Add root path information
 	router.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
-			"service":     cfg.App.Name + " Data Flow API",
-			"version":     cfg.App.Version,
-			"description": "Unified agent access platform for downstream applications",
-			"environment": cfg.App.Environment,
+			"service":      cfg.App.Name + " Data Flow API",
+			"version":      cfg.App.Version,
+			"description":  "Unified agent access platform with Backend architecture",
+			"environment":  cfg.App.Environment,
+			"architecture": "Backend-based with OpenAI, Dify Chat, and Dify Workflow support",
 			"endpoints": map[string]interface{}{
-				"health":        "/api/v1/dataflow/health",
-				"chat":          "/api/v1/dataflow/chat/:agent_id",
-				"openai":        "/api/v1/dataflow/openai/chat/completions/:agent_id",
-				"dify":          "/api/v1/dataflow/dify/chat-messages/:agent_id",
+				"health":        "/api/v1/health",
+				"openai_chat":   "/api/v1/openai/chat/completions",
+				"dify_chat":     "/api/v1/dify/chat-messages",
+				"dify_workflow": "/api/v1/dify/workflows/run",
+				"legacy_chat":   "/api/v1/chat (deprecated, use specific endpoints)",
 				"documentation": "https://docs.agent-connector.com/dataflow-api",
 			},
 			"authentication": map[string]string{
 				"method":      "API Key + Agent ID",
 				"header":      "Authorization: Bearer <api_key> or X-API-Key: <api_key>",
-				"agent_id":    "Provided in URL path parameter",
+				"agent_id":    "Provided in request body or URL parameter",
 				"description": "API keys are generated and managed by Agent-Connector platform",
 			},
 			"features": []string{
-				"Multi-platform agent support (OpenAI, Dify, etc.)",
+				"Backend-based architecture with clear separation",
+				"OpenAI compatible interface",
+				"Dify Chat and Workflow interfaces",
 				"Streaming and blocking response modes",
-				"Automatic format conversion",
-				"Rate limiting and priority queuing",
+				"Automatic backend selection",
+				"Redis-based distributed rate limiting",
 				"Real-time request monitoring",
 			},
 			"status":    "running",
@@ -109,6 +134,11 @@ func main() {
 
 		fmt.Println("\n🛑 Shutting down Data Flow API server...")
 
+		// Close rate limiter
+		if redisRateLimiter != nil {
+			redisRateLimiter.Close()
+		}
+
 		// Give server 5 seconds to complete existing requests
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -125,7 +155,7 @@ func main() {
 
 	// Start server
 	fmt.Printf("🎯 Data Flow API server is running on http://%s\n", cfg.GetServiceAddr("data"))
-	fmt.Println("📋 Ready to handle agent requests from downstream applications")
+	fmt.Println("📋 Ready to handle agent requests with new Backend architecture")
 	fmt.Println("💡 Use Ctrl+C to gracefully shutdown the server")
 
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -133,38 +163,88 @@ func main() {
 	}
 }
 
+// setupMiddlewares setup common middlewares
+func setupMiddlewares(router *gin.Engine, cfg *config.Config) {
+	// CORS middleware
+	router.Use(func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Credentials", "true")
+		c.Header("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With, X-API-Key")
+		c.Header("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	})
+
+	// Logging middleware
+	router.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
+		return fmt.Sprintf("[DataFlow-Backend] %s - [%s] \"%s %s %s %d %s \"%s\" %s\"\n",
+			param.ClientIP,
+			param.TimeStamp.Format("02/Jan/2006:15:04:05 -0700"),
+			param.Method,
+			param.Path,
+			param.Request.Proto,
+			param.StatusCode,
+			param.Latency,
+			param.Request.UserAgent(),
+			param.ErrorMessage,
+		)
+	}))
+
+	// Recovery middleware
+	router.Use(gin.Recovery())
+
+	// Request body size limit
+	router.Use(func(c *gin.Context) {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, cfg.API.MaxRequestBodySize)
+		c.Next()
+	})
+}
+
 // printAPIEndpoints print API endpoints information
 func printAPIEndpoints(cfg *config.Config) {
-	fmt.Println("\n📡 Available API Endpoints:")
-	fmt.Println("├── GET  /                                          - Service information")
-	fmt.Println("├── GET  /api/v1/dataflow/health                    - Health check")
-	fmt.Println("├── POST /api/v1/dataflow/chat/:agent_id            - Universal chat interface")
-	fmt.Println("├── POST /api/v1/dataflow/openai/chat/completions/:agent_id  - OpenAI compatible")
-	fmt.Println("└── POST /api/v1/dataflow/dify/chat-messages/:agent_id       - Dify compatible")
+	fmt.Println("\n📡 Available API Endpoints (New Backend Architecture):")
+	fmt.Println("├── GET  /                                    - Service information")
+	fmt.Println("├── GET  /api/v1/health                       - Health check")
+	fmt.Println("├── POST /api/v1/openai/chat/completions      - OpenAI compatible interface")
+	fmt.Println("├── POST /api/v1/dify/chat-messages           - Dify Chat interface")
+	fmt.Println("├── POST /api/v1/dify/workflows/run           - Dify Workflow interface")
+	fmt.Println("└── POST /api/v1/chat                         - Legacy unified interface (deprecated)")
 
 	fmt.Println("\n🔐 Authentication:")
 	fmt.Println("├── Header: Authorization: Bearer <api_key>")
 	fmt.Println("├── Header: X-API-Key: <api_key>")
-	fmt.Println("└── Path Parameter: agent_id (generated by Agent-Connector)")
+	fmt.Println("└── Request Body: agent_id field required")
 
-	fmt.Println("\n🌟 Features:")
-	fmt.Println("├── ✨ Multi-platform agent support")
-	fmt.Println("├── 🔄 Streaming and blocking responses")
-	fmt.Println("├── 🔄 Automatic format conversion")
-	fmt.Println("├── ⚡ Rate limiting and priority queuing")
-	fmt.Println("└── 📊 Real-time monitoring")
+	fmt.Println("\n🌟 New Features:")
+	fmt.Println("├── ✨ Backend-based architecture")
+	fmt.Println("├── 🔄 Dedicated endpoints for each backend type")
+	fmt.Println("├── 🎯 Better type safety and validation")
+	fmt.Println("├── ⚡ Redis-based distributed rate limiting")
+	fmt.Println("├── 📊 Enhanced monitoring and logging")
+	fmt.Println("└── 🔧 Easier to extend and maintain")
 
 	fmt.Println("\n📖 Usage Examples:")
 	fmt.Println("# OpenAI-style request:")
-	fmt.Printf("curl -X POST http://%s/api/v1/dataflow/openai/chat/completions/your-agent-id \\\n", cfg.GetServiceAddr("data"))
+	fmt.Printf("curl -X POST http://%s/api/v1/openai/chat/completions \\\n", cfg.GetServiceAddr("data"))
 	fmt.Println("  -H \"Authorization: Bearer your-api-key\" \\")
 	fmt.Println("  -H \"Content-Type: application/json\" \\")
-	fmt.Println("  -d '{\"messages\": [{\"role\": \"user\", \"content\": \"Hello!\"}], \"model\": \"gpt-3.5-turbo\"}'")
+	fmt.Println("  -d '{\"agent_id\": \"your-agent-id\", \"messages\": [{\"role\": \"user\", \"content\": \"Hello!\"}], \"model\": \"gpt-3.5-turbo\"}'")
 
-	fmt.Println("\n# Dify-style request:")
-	fmt.Printf("curl -X POST http://%s/api/v1/dataflow/dify/chat-messages/your-agent-id \\\n", cfg.GetServiceAddr("data"))
+	fmt.Println("\n# Dify Chat request:")
+	fmt.Printf("curl -X POST http://%s/api/v1/dify/chat-messages \\\n", cfg.GetServiceAddr("data"))
 	fmt.Println("  -H \"Authorization: Bearer your-api-key\" \\")
 	fmt.Println("  -H \"Content-Type: application/json\" \\")
-	fmt.Println("  -d '{\"query\": \"Hello!\", \"user\": \"user123\"}'")
+	fmt.Println("  -d '{\"agent_id\": \"your-agent-id\", \"query\": \"Hello!\", \"user\": \"user123\"}'")
+
+	fmt.Println("\n# Dify Workflow request:")
+	fmt.Printf("curl -X POST http://%s/api/v1/dify/workflows/run \\\n", cfg.GetServiceAddr("data"))
+	fmt.Println("  -H \"Authorization: Bearer your-api-key\" \\")
+	fmt.Println("  -H \"Content-Type: application/json\" \\")
+	fmt.Println("  -d '{\"agent_id\": \"your-agent-id\", \"inputs\": {\"query\": \"Hello!\"}, \"user\": \"user123\"}'")
 	fmt.Println()
 }

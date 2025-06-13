@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"agent-connector/pkg/types"
 	"errors"
 	"time"
 
@@ -170,7 +171,7 @@ func (s *AgentService) validateAgent(agent *Agent) error {
 		return errors.New("agent name is required")
 	}
 
-	if agent.Type != AgentTypeDify && agent.Type != AgentTypeOpenAI && agent.Type != AgentTypeOpenAICompatible {
+	if agent.Type != types.AgentTypeOpenAI && agent.Type != types.AgentTypeDifyChat && agent.Type != types.AgentTypeDifyWorkflow {
 		return errors.New("invalid agent type")
 	}
 

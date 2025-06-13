@@ -132,7 +132,7 @@ export interface ChangePasswordRequest {
 export interface Agent {
   id: number;
   name: string;
-  type: 'openai' | 'openai_compatible' | 'dify';
+  type: 'openai' | 'dify-chat' | 'dify-workflow';
   url: string;
   source_api_key: string;
   connector_api_key: string;
@@ -148,7 +148,7 @@ export interface Agent {
 
 export interface CreateAgentRequest {
   name: string;
-  type: 'openai' | 'openai_compatible' | 'dify';
+  type: 'openai' | 'dify-chat' | 'dify-workflow';
   url: string;
   source_api_key: string;
   qps: number;
@@ -272,19 +272,19 @@ export const controlFlowApi_endpoints = {
 
   // Agent管理
   getAgents: (page = 1, pageSize = 10): Promise<AxiosResponse<PaginationResponse<Agent>>> =>
-    controlFlowApi.get(`/api/v1/agents?page=${page}&page_size=${pageSize}`),
+    controlFlowApi.get(`/api/v1/controlflow/agents?page=${page}&page_size=${pageSize}`),
 
   createAgent: (data: CreateAgentRequest): Promise<AxiosResponse<ApiResponse<Agent>>> =>
-    controlFlowApi.post('/api/v1/agents', data),
+    controlFlowApi.post('/api/v1/controlflow/agents', data),
 
   getAgent: (id: number): Promise<AxiosResponse<ApiResponse<Agent>>> =>
-    controlFlowApi.get(`/api/v1/agents/${id}`),
+    controlFlowApi.get(`/api/v1/controlflow/agents/${id}`),
 
   updateAgent: (id: number, data: Partial<CreateAgentRequest>): Promise<AxiosResponse<ApiResponse<Agent>>> =>
-    controlFlowApi.put(`/api/v1/agents/${id}`, data),
+    controlFlowApi.put(`/api/v1/controlflow/agents/${id}`, data),
 
   deleteAgent: (id: number): Promise<AxiosResponse<ApiResponse<null>>> =>
-    controlFlowApi.delete(`/api/v1/agents/${id}`),
+    controlFlowApi.delete(`/api/v1/controlflow/agents/${id}`),
 
   // 健康检查
   healthCheck: (): Promise<AxiosResponse<ApiResponse<any>>> =>
