@@ -8,9 +8,6 @@ import (
 type RateLimiterType string
 
 const (
-	// LocalType uses local memory for rate limiting
-	LocalType RateLimiterType = "local"
-
 	// RedisType uses Redis for distributed rate limiting
 	RedisType RateLimiterType = "redis"
 )
@@ -30,9 +27,6 @@ func NewRateLimiter(limiterType RateLimiterType, config *Config) (RateLimiter, e
 	}
 
 	switch limiterType {
-	case LocalType:
-		return NewLocalRateLimiter(config), nil
-
 	case RedisType:
 		return NewRedisRateLimiter(config)
 
@@ -55,29 +49,32 @@ func ValidateConfig(config *Config) error {
 		return fmt.Errorf("burst must be positive, got: %d", config.Burst)
 	}
 
-	// Validate Redis configuration if provided
-	if config.Redis != nil {
-		if config.Redis.Addr == "" {
-			return fmt.Errorf("Redis address cannot be empty")
-		}
+	// Redis configuration is required
+	if config.Redis == nil {
+		return fmt.Errorf("Redis configuration is required")
+	}
 
-		if config.Redis.PoolSize <= 0 {
-			config.Redis.PoolSize = 10 // Set default pool size
-		}
+	if config.Redis.Addr == "" {
+		return fmt.Errorf("Redis address cannot be empty")
+	}
 
-		if config.Redis.MinIdleConns < 0 {
-			return fmt.Errorf("MinIdleConns cannot be negative, got: %d", config.Redis.MinIdleConns)
-		}
+	if config.Redis.PoolSize <= 0 {
+		config.Redis.PoolSize = 10 // Set default pool size
+	}
+
+	if config.Redis.MinIdleConns < 0 {
+		return fmt.Errorf("MinIdleConns cannot be negative, got: %d", config.Redis.MinIdleConns)
 	}
 
 	return nil
 }
 
-// DefaultConfig returns a default rate limiter configuration
-func DefaultConfig() *Config {
+// DefaultConfig returns a default rate limiter configuration with Redis
+func DefaultConfig(redisAddr string) *Config {
 	return &Config{
 		Rate:  10.0, // 10 requests per second
 		Burst: 20,   // burst of 20 requests
+		Redis: DefaultRedisConfig(redisAddr),
 	}
 }
 

@@ -18,35 +18,48 @@ func TestNewRateLimiter(t *testing.T) {
 	}{
 		{
 			name:        "nil config",
-			limiterType: LocalType,
+			limiterType: RedisType,
 			config:      nil,
 			expectError: true,
 			errorMsg:    "config cannot be nil",
 		},
 		{
 			name:        "invalid rate",
-			limiterType: LocalType,
-			config:      &Config{Rate: -1, Burst: 10},
+			limiterType: RedisType,
+			config: &Config{
+				Rate:  -1,
+				Burst: 10,
+				Redis: &RedisConfig{Addr: "localhost:6379"},
+			},
 			expectError: true,
 			errorMsg:    "rate must be positive",
 		},
 		{
 			name:        "invalid burst",
-			limiterType: LocalType,
-			config:      &Config{Rate: 10, Burst: -1},
+			limiterType: RedisType,
+			config: &Config{
+				Rate:  10,
+				Burst: -1,
+				Redis: &RedisConfig{Addr: "localhost:6379"},
+			},
 			expectError: true,
 			errorMsg:    "burst must be positive",
 		},
 		{
-			name:        "valid local config",
-			limiterType: LocalType,
+			name:        "missing redis config",
+			limiterType: RedisType,
 			config:      &Config{Rate: 10, Burst: 20},
-			expectError: false,
+			expectError: true,
+			errorMsg:    "Redis configuration is required",
 		},
 		{
 			name:        "unsupported type",
 			limiterType: "invalid",
-			config:      &Config{Rate: 10, Burst: 20},
+			config: &Config{
+				Rate:  10,
+				Burst: 20,
+				Redis: &RedisConfig{Addr: "localhost:6379"},
+			},
 			expectError: true,
 			errorMsg:    "unsupported rate limiter type",
 		},
@@ -87,33 +100,50 @@ func TestValidateConfig(t *testing.T) {
 			errorMsg:    "config cannot be nil",
 		},
 		{
-			name:        "negative rate",
-			config:      &Config{Rate: -1, Burst: 10},
+			name: "negative rate",
+			config: &Config{
+				Rate:  -1,
+				Burst: 10,
+				Redis: &RedisConfig{Addr: "localhost:6379"},
+			},
 			expectError: true,
 			errorMsg:    "rate must be positive",
 		},
 		{
-			name:        "zero rate",
-			config:      &Config{Rate: 0, Burst: 10},
+			name: "zero rate",
+			config: &Config{
+				Rate:  0,
+				Burst: 10,
+				Redis: &RedisConfig{Addr: "localhost:6379"},
+			},
 			expectError: true,
 			errorMsg:    "rate must be positive",
 		},
 		{
-			name:        "negative burst",
-			config:      &Config{Rate: 10, Burst: -1},
+			name: "negative burst",
+			config: &Config{
+				Rate:  10,
+				Burst: -1,
+				Redis: &RedisConfig{Addr: "localhost:6379"},
+			},
 			expectError: true,
 			errorMsg:    "burst must be positive",
 		},
 		{
-			name:        "zero burst",
-			config:      &Config{Rate: 10, Burst: 0},
+			name: "zero burst",
+			config: &Config{
+				Rate:  10,
+				Burst: 0,
+				Redis: &RedisConfig{Addr: "localhost:6379"},
+			},
 			expectError: true,
 			errorMsg:    "burst must be positive",
 		},
 		{
-			name:        "valid config without redis",
+			name:        "missing redis config",
 			config:      &Config{Rate: 10, Burst: 20},
-			expectError: false,
+			expectError: true,
+			errorMsg:    "Redis configuration is required",
 		},
 		{
 			name: "redis config with empty addr",
@@ -185,12 +215,14 @@ func TestValidateConfig(t *testing.T) {
 }
 
 func TestDefaultConfig(t *testing.T) {
-	config := DefaultConfig()
+	addr := "localhost:6379"
+	config := DefaultConfig(addr)
 
 	require.NotNil(t, config)
 	assert.Equal(t, 10.0, config.Rate)
 	assert.Equal(t, 20, config.Burst)
-	assert.Nil(t, config.Redis)
+	require.NotNil(t, config.Redis)
+	assert.Equal(t, addr, config.Redis.Addr)
 }
 
 func TestDefaultRedisConfig(t *testing.T) {

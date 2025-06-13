@@ -28,7 +28,7 @@ const Login: React.FC = () => {
   const { state, login, clearError } = useAuth();
   const [loginForm] = Form.useForm();
 
-  // 如果已经登录，重定向到主页
+  // If already logged in, redirect to home page
   useEffect(() => {
     if (state.isAuthenticated) {
       const from = (location.state as any)?.from?.pathname || '/';
@@ -36,20 +36,20 @@ const Login: React.FC = () => {
     }
   }, [state.isAuthenticated, navigate, location]);
 
-  // 清除错误 - 只在组件卸载时执行
+  // Clear error - only executed when component is unmounted
   useEffect(() => {
     return () => {
       clearError();
     };
-  }, []); // 移除clearError依赖，避免无限循环
+  }, []); // Remove clearError dependency to avoid infinite loop
 
-  // 处理登录
+  // Handle login
   const handleLogin = async (values: LoginRequest) => {
     try {
       await login(values);
-      // 登录成功后会自动重定向（通过上面的useEffect）
+      // After login, it will automatically redirect (through the useEffect above)
     } catch (error) {
-      // 错误已经在AuthContext中处理
+      // Error is already handled in AuthContext
     }
   };
 
@@ -73,17 +73,17 @@ const Login: React.FC = () => {
               border: 'none',
             }}
           >
-            {/* 头部标题 */}
+            {/* Header title */}
             <div style={{ textAlign: 'center', marginBottom: '32px' }}>
               <Title level={2} style={{ color: '#1890ff', marginBottom: '8px' }}>
                 Agent-Connector
               </Title>
               <Text type="secondary" style={{ fontSize: '16px' }}>
-                统一代理访问平台
+                Unified agent access platform
               </Text>
             </div>
 
-            {/* 错误提示 */}
+            {/* Error message */}
             {state.error && (
               <Alert
                 message={state.error}
@@ -95,13 +95,13 @@ const Login: React.FC = () => {
               />
             )}
 
-            {/* 登录表单 */}
+            {/* Login form */}
             <div style={{ textAlign: 'center', marginBottom: '24px' }}>
               <Title level={3} style={{ marginBottom: '8px' }}>
                 <LoginOutlined style={{ marginRight: '8px' }} />
-                用户登录
+                User login
               </Title>
-              <Text type="secondary">请使用管理员分配的账户登录</Text>
+              <Text type="secondary">Please use the account assigned by the administrator to login</Text>
             </div>
 
             <Form
@@ -115,13 +115,13 @@ const Login: React.FC = () => {
               <Form.Item
                 name="username"
                 rules={[
-                  { required: true, message: '请输入用户名或邮箱' },
-                  { min: 3, message: '用户名至少3个字符' },
+                  { required: true, message: 'Please enter username or email' },
+                  { min: 3, message: 'Username must be at least 3 characters' },
                 ]}
               >
                 <Input
                   prefix={<UserOutlined />}
-                  placeholder="用户名或邮箱"
+                  placeholder="Username or email"
                   autoComplete="username"
                 />
               </Form.Item>
@@ -129,13 +129,13 @@ const Login: React.FC = () => {
               <Form.Item
                 name="password"
                 rules={[
-                  { required: true, message: '请输入密码' },
-                  { min: 6, message: '密码至少6个字符' },
+                  { required: true, message: 'Please enter password' },
+                  { min: 6, message: 'Password must be at least 6 characters' },
                 ]}
               >
                 <Input.Password
                   prefix={<LockOutlined />}
-                  placeholder="密码"
+                  placeholder="Password"
                   autoComplete="current-password"
                 />
               </Form.Item>
@@ -149,26 +149,26 @@ const Login: React.FC = () => {
                   size="large"
                   style={{ borderRadius: '8px' }}
                 >
-                  登录
+                  Login
                 </Button>
               </Form.Item>
             </Form>
 
             <Divider plain>
-              <Text type="secondary">默认管理员账户</Text>
+              <Text type="secondary">Default admin account</Text>
             </Divider>
 
             <div style={{ textAlign: 'center' }}>
               <Space direction="vertical" size="small">
                 <Text type="secondary">
-                  用户名: <Text code>admin</Text>
+                  Username: <Text code>admin</Text>
                 </Text>
                 <Text type="secondary">
-                  密码: <Text code>admin123</Text>
+                  Password: <Text code>admin123</Text>
                 </Text>
                 <Divider type="vertical" />
                 <Text type="secondary" style={{ fontSize: '12px' }}>
-                  如需创建新用户，请联系管理员
+                  If you need to create a new user, please contact the administrator
                 </Text>
               </Space>
             </div>

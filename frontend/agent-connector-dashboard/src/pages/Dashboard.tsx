@@ -32,11 +32,11 @@ const Dashboard: React.FC = () => {
   const [stats, setStats] = useState<any>(null);
   const [systemHealth, setSystemHealth] = useState<any>(null);
 
-  // 加载统计数据
+  // Load statistics data
   const loadStats = async () => {
     setLoading(true);
     try {
-      // 从API获取统计数据
+      // Get statistics data from API
       const [statsResponse, healthResponse] = await Promise.all([
         systemApi.getStats(),
         authApi.healthCheck(),
@@ -53,10 +53,10 @@ const Dashboard: React.FC = () => {
           errorRate: ((data.failed_requests_today || 0) / Math.max(data.total_requests_today || 1, 1) * 100).toFixed(1),
         });
       } else {
-        throw new Error(statsResponse.data.message || '获取统计数据失败');
+        throw new Error(statsResponse.data.message || 'Failed to get statistics data');
       }
 
-      // 获取系统健康状态
+      // Get system health status
       if (healthResponse.data.code === 200) {
         setSystemHealth(healthResponse.data.data || {
           auth_service: 'unknown',
@@ -68,7 +68,7 @@ const Dashboard: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Failed to load stats:', error);
-      // 设置空数据状态
+      // Set empty data state
       setStats({
         totalUsers: 0,
         activeUsers: 0,
@@ -94,7 +94,7 @@ const Dashboard: React.FC = () => {
     loadRecentActivities();
   }, []);
 
-  // 系统状态颜色
+  // System status color
   const getHealthColor = (status: string) => {
     switch (status) {
       case 'healthy':
@@ -108,24 +108,24 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // 系统状态文本
+  // System status text
   const getHealthText = (status: string) => {
     switch (status) {
       case 'healthy':
-        return '正常';
+        return 'Healthy';
       case 'warning':
-        return '警告';
+        return 'Warning';
       case 'error':
-        return '错误';
+        return 'Error';
       default:
-        return '未知';
+        return 'Unknown';
     }
   };
 
-  // 最近活动数据
+  // Recent activities data
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
 
-  // 加载最近活动日志
+  // Load recent activity logs
   const loadRecentActivities = async () => {
     try {
       const response = await authApi.getLoginLogs(1, 5);
@@ -133,9 +133,9 @@ const Dashboard: React.FC = () => {
         const activities = response.data.data.map((log: any, index: number) => ({
           key: log.id || index,
           time: new Date(log.created_at).toLocaleString('zh-CN'),
-          user: log.username || '未知用户',
-          action: log.status === 'success' ? '登录系统' : '登录失败',
-          target: `来自 ${log.ip_address}`,
+          user: log.username || 'Unknown user',
+          action: log.status === 'success' ? 'Login system' : 'Login failed',
+          target: `From ${log.ip_address}`,
           status: log.status,
         }));
         setRecentActivities(activities);
@@ -148,35 +148,35 @@ const Dashboard: React.FC = () => {
 
   const activityColumns = [
     {
-      title: '时间',
+      title: 'Time',
       dataIndex: 'time',
       key: 'time',
       width: 180,
     },
     {
-      title: '用户',
+      title: 'User',
       dataIndex: 'user',
       key: 'user',
       width: 120,
     },
     {
-      title: '操作',
+      title: 'Action',
       dataIndex: 'action',
       key: 'action',
     },
     {
-      title: '对象',
+      title: 'Target',
       dataIndex: 'target',
       key: 'target',
     },
     {
-      title: '状态',
+      title: 'Status',
       dataIndex: 'status',
       key: 'status',
       width: 80,
       render: (status: string) => (
         <Tag color={status === 'success' ? 'green' : 'red'}>
-          {status === 'success' ? '成功' : '失败'}
+          {status === 'success' ? 'Success' : 'Failed'}
         </Tag>
       ),
     },
@@ -184,7 +184,7 @@ const Dashboard: React.FC = () => {
 
   return (
     <div>
-      {/* 欢迎信息 */}
+      {/* Welcome message */}
       <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
         <Col span={24}>
           <Card>
@@ -192,10 +192,10 @@ const Dashboard: React.FC = () => {
               <Col>
                 <Space direction="vertical" size="small">
                   <Title level={3} style={{ margin: 0 }}>
-                    欢迎回来，{state.user?.full_name || state.user?.username}！
+                    Welcome back, {state.user?.full_name || state.user?.username}!
                   </Title>
                   <Text type="secondary">
-                    今天是 {new Date().toLocaleDateString('zh-CN', {
+                    Today is {new Date().toLocaleDateString('zh-CN', {
                       year: 'numeric',
                       month: 'long',
                       day: 'numeric',
@@ -210,7 +210,7 @@ const Dashboard: React.FC = () => {
                   onClick={loadStats}
                   loading={loading}
                 >
-                  刷新数据
+                  Refresh data
                 </Button>
               </Col>
             </Row>
@@ -218,47 +218,47 @@ const Dashboard: React.FC = () => {
         </Col>
       </Row>
 
-      {/* 统计卡片 */}
+      {/* Statistics cards */}
       <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="总用户数"
+              title="Total users"
               value={stats?.totalUsers || 0}
               prefix={<UserOutlined />}
-              suffix="人"
+              suffix="people"
               valueStyle={{ color: '#1890ff' }}
             />
             <div style={{ marginTop: '8px' }}>
-              <Text type="secondary">活跃用户: {stats?.activeUsers || 0}</Text>
+              <Text type="secondary">Active users: {stats?.activeUsers || 0}</Text>
             </div>
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="Agent配置"
+              title="Agent configuration"
               value={stats?.totalAgents || 0}
               prefix={<RobotOutlined />}
-              suffix="个"
+              suffix="agents"
               valueStyle={{ color: '#52c41a' }}
             />
             <div style={{ marginTop: '8px' }}>
-              <Text type="secondary">活跃配置: {stats?.activeAgents || 0}</Text>
+              <Text type="secondary">Active agents: {stats?.activeAgents || 0}</Text>
             </div>
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="今日请求"
+              title="Today requests"
               value={stats?.todayRequests || 0}
               prefix={<ThunderboltOutlined />}
-              suffix="次"
+              suffix="times"
               valueStyle={{ color: '#fa8c16' }}
             />
             <div style={{ marginTop: '8px' }}>
-              <Text type="secondary">错误率: {stats?.errorRate || 0}%</Text>
+              <Text type="secondary">Error rate: {stats?.errorRate || 0}%</Text>
             </div>
           </Card>
         </Col>
@@ -275,17 +275,17 @@ const Dashboard: React.FC = () => {
                 }}
               />
               <div style={{ marginTop: '8px' }}>
-                <Text strong>系统健康度</Text>
+                <Text strong>System health</Text>
               </div>
             </div>
           </Card>
         </Col>
       </Row>
 
-      {/* 系统状态和最近活动 */}
+      {/* System status and recent activities */}
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={8}>
-          <Card title="系统状态" style={{ height: '400px' }}>
+          <Card title="System status" style={{ height: '400px' }}>
             <Space direction="vertical" size="large" style={{ width: '100%' }}>
               {systemHealth && Object.entries(systemHealth).map(([service, status]) => (
                 <Row key={service} justify="space-between" align="middle">
@@ -297,10 +297,10 @@ const Dashboard: React.FC = () => {
                         <ExclamationCircleOutlined style={{ color: 'orange' }} />
                       )}
                       <Text strong>
-                        {service === 'auth_service' && '认证服务'}
-                        {service === 'control_service' && '控制服务'}
-                        {service === 'data_service' && '数据服务'}
-                        {service === 'database' && '数据库'}
+                        {service === 'auth_service' && 'Authentication service'}
+                        {service === 'control_service' && 'Control service'}
+                        {service === 'data_service' && 'Data service'}
+                        {service === 'database' && 'Database'}
                         {service === 'redis' && 'Redis'}
                       </Text>
                     </Space>
@@ -317,8 +317,8 @@ const Dashboard: React.FC = () => {
             <Divider />
             
             <Alert
-              message="系统运行正常"
-              description="所有核心服务运行良好，数据服务有轻微警告。"
+              message="System is running normally"
+              description="All core services are running well, with a slight warning from the data service."
               type="info"
               showIcon
               style={{ marginTop: '16px' }}
@@ -327,7 +327,7 @@ const Dashboard: React.FC = () => {
         </Col>
         
         <Col xs={24} lg={16}>
-          <Card title="最近活动" style={{ height: '400px' }}>
+          <Card title="Recent activities" style={{ height: '400px' }}>
             <Table
               columns={activityColumns}
               dataSource={recentActivities}

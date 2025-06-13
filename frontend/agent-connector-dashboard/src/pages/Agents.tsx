@@ -19,20 +19,19 @@ import {
   Divider,
   Switch,
   Alert,
+  InputNumber,
 } from 'antd';
 import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
   SearchOutlined,
-  RobotOutlined,
   EyeOutlined,
   ReloadOutlined,
-  ApiOutlined,
   CheckCircleOutlined,
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
-import { useAuth, PermissionGuard } from '../contexts/AuthContext';
+import { PermissionGuard } from '../contexts/AuthContext';
 import { controlFlowApi_endpoints, Agent, CreateAgentRequest } from '../services/api';
 import dayjs from 'dayjs';
 
@@ -41,7 +40,6 @@ const { Search, TextArea } = Input;
 const { Option } = Select;
 
 const Agents: React.FC = () => {
-  const { hasPermission } = useAuth();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
@@ -56,33 +54,22 @@ const Agents: React.FC = () => {
   });
   const [form] = Form.useForm();
 
-  // Agent类型选项
+  // Agent type options
   const typeOptions = [
     { value: 'openai', label: 'OpenAI', color: 'green', icon: '🤖' },
+    { value: 'openai_compatible', label: 'OpenAI Compatible', color: 'cyan', icon: '🔗' },
     { value: 'dify', label: 'Dify', color: 'blue', icon: '🔧' },
-    { value: 'custom', label: 'Custom', color: 'orange', icon: '⚙️' },
   ];
 
-  // 响应格式选项
+  // Response format options
   const responseFormatOptions = [
     { value: 'openai', label: 'OpenAI Compatible' },
     { value: 'dify', label: 'Dify Compatible' },
   ];
 
-  // 状态选项
-  const statusOptions = [
-    { value: 'active', label: '活跃', color: 'green' },
-    { value: 'inactive', label: '停用', color: 'red' },
-  ];
 
-  // 常用模型选项
-  const modelOptions = {
-    openai: ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo', 'gpt-3.5-turbo-16k'],
-    dify: ['dify-chat', 'dify-completion', 'dify-workflow'],
-    custom: ['custom-model-1', 'custom-model-2'],
-  };
 
-  // 加载Agent列表
+  // Load Agent list
   const loadAgents = async (page = 1, pageSize = 10, search = '') => {
     setLoading(true);
     try {
@@ -90,12 +77,11 @@ const Agents: React.FC = () => {
       if (response.data.code === 200) {
         let agents = response.data.data;
         
-        // 如果有搜索条件，在前端进行过滤
+        // If there is a search condition, filter it in the front end
         if (search) {
           agents = agents.filter(agent => 
             agent.name.toLowerCase().includes(search.toLowerCase()) ||
             agent.type.toLowerCase().includes(search.toLowerCase()) ||
-            agent.model.toLowerCase().includes(search.toLowerCase()) ||
             agent.description.toLowerCase().includes(search.toLowerCase())
           );
         }
@@ -107,11 +93,11 @@ const Agents: React.FC = () => {
           total: search ? agents.length : response.data.pagination.total,
         });
       } else {
-        throw new Error(response.data.message || '获取Agent列表失败');
+        throw new Error(response.data.message || 'Failed to get Agent list');
       }
     } catch (error: any) {
       console.error('Failed to load agents:', error);
-      message.error(error.response?.data?.message || '加载Agent列表失败');
+      message.error(error.response?.data?.message || 'Failed to load Agent list');
       setAgents([]);
       setPagination({
         current: page,
@@ -123,104 +109,101 @@ const Agents: React.FC = () => {
     }
   };
 
-  // 初始化加载
+  // Initialize loading
   useEffect(() => {
     loadAgents();
   }, []);
 
-  // 搜索处理
+  // Search processing
   const handleSearch = (value: string) => {
     setSearchText(value);
     loadAgents(1, pagination.pageSize, value);
   };
 
-  // 分页处理
+  // Pagination processing
   const handleTableChange = (newPagination: any) => {
     loadAgents(newPagination.current, newPagination.pageSize, searchText);
   };
 
-  // 打开创建/编辑模态框
+  // Open create/edit modal
   const handleOpenModal = (agent?: Agent) => {
     setEditingAgent(agent || null);
     if (agent) {
       form.setFieldsValue({
         name: agent.name,
         type: agent.type,
-        endpoint: agent.endpoint,
+        url: agent.url,
         source_api_key: agent.source_api_key,
-        model: agent.model,
+        qps: agent.qps,
+        enabled: agent.enabled,
         description: agent.description,
         support_streaming: agent.support_streaming,
         response_format: agent.response_format,
-        status: agent.status,
       });
     } else {
       form.resetFields();
       form.setFieldsValue({
+        qps: 10,
+        enabled: true,
         support_streaming: true,
         response_format: 'openai',
-        status: 'active',
       });
     }
     setIsModalVisible(true);
   };
 
-  // 保存Agent
+  // Save Agent
   const handleSaveAgent = async (values: CreateAgentRequest) => {
     try {
       if (editingAgent) {
-        // 编辑Agent
+        // Edit Agent
         await controlFlowApi_endpoints.updateAgent(editingAgent.id, values);
-        message.success('Agent更新成功');
+        message.success('Agent updated successfully');
       } else {
-        // 创建Agent
+        // Create Agent
         await controlFlowApi_endpoints.createAgent(values);
-        message.success('Agent创建成功');
+        message.success('Agent created successfully');
       }
       setIsModalVisible(false);
       loadAgents(pagination.current, pagination.pageSize, searchText);
     } catch (error: any) {
       console.error('Save agent failed:', error);
-      message.error(editingAgent ? 'Agent更新失败' : 'Agent创建失败');
+      message.error(editingAgent ? 'Agent update failed' : 'Agent create failed');
     }
   };
 
-  // 删除Agent
+  // Delete Agent
   const handleDeleteAgent = async (agentId: number) => {
     try {
       await controlFlowApi_endpoints.deleteAgent(agentId);
-      message.success('Agent删除成功');
+      message.success('Agent deleted successfully');
       loadAgents(pagination.current, pagination.pageSize, searchText);
     } catch (error: any) {
       console.error('Delete agent failed:', error);
-      message.error('Agent删除失败');
+      message.error('Agent delete failed');
     }
   };
 
-  // 查看Agent详情
+  // View Agent details
   const handleViewAgent = (agent: Agent) => {
     setSelectedAgent(agent);
     setIsViewDrawerVisible(true);
   };
 
-  // 获取类型信息
+  // Get type information
   const getTypeInfo = (type: string) => {
     return typeOptions.find(opt => opt.value === type) || { label: type, color: 'default', icon: '?' };
   };
 
-  // 隐藏API Key
+  // Hide API Key
   const hideApiKey = (key: string) => {
     if (!key) return '';
     return key.substring(0, 8) + '***hidden***';
   };
 
-  // Agent类型变化时更新模型选项
-  const handleTypeChange = (type: string) => {
-    const models = modelOptions[type as keyof typeof modelOptions] || [];
-    form.setFieldsValue({ model: models[0] || '' });
-  };
 
-  // 表格列定义
+
+  // Table column definition
   const columns = [
     {
       title: 'Agent',
@@ -242,7 +225,7 @@ const Agents: React.FC = () => {
       },
     },
     {
-      title: '类型',
+      title: 'Type',
       dataIndex: 'type',
       key: 'type',
       render: (type: string) => {
@@ -251,51 +234,48 @@ const Agents: React.FC = () => {
       },
     },
     {
-      title: '模型',
-      dataIndex: 'model',
-      key: 'model',
-      render: (model: string) => <Text code>{model}</Text>,
-    },
-    {
-      title: '端点',
-      dataIndex: 'endpoint',
-      key: 'endpoint',
-      render: (endpoint: string) => (
-        <Text ellipsis style={{ maxWidth: 200 }} title={endpoint}>
-          {endpoint}
+      title: 'API Endpoint',
+      dataIndex: 'url',
+      key: 'url',
+      render: (url: string) => (
+        <Text ellipsis style={{ maxWidth: 200 }} title={url}>
+          {url}
         </Text>
       ),
     },
     {
-      title: '流式',
+      title: 'QPS Limit',
+      dataIndex: 'qps',
+      key: 'qps',
+      render: (qps: number) => <Text code>{qps}</Text>,
+    },
+    {
+      title: 'Streaming',
       dataIndex: 'support_streaming',
       key: 'support_streaming',
       render: (streaming: boolean) => 
         streaming ? 
-          <Tag color="green" icon={<CheckCircleOutlined />}>支持</Tag> : 
-          <Tag color="default">不支持</Tag>,
+          <Tag color="green" icon={<CheckCircleOutlined />}>Supported</Tag> : 
+          <Tag color="default">Not supported</Tag>,
     },
     {
-      title: '状态',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status: string) => {
-        const option = statusOptions.find(opt => opt.value === status);
-        return (
-          <Tag color={option?.color} icon={status === 'active' ? <CheckCircleOutlined /> : <ExclamationCircleOutlined />}>
-            {option?.label || status}
-          </Tag>
-        );
-      },
+      title: 'Status',
+      dataIndex: 'enabled',
+      key: 'enabled',
+      render: (enabled: boolean) => (
+        <Tag color={enabled ? 'green' : 'red'} icon={enabled ? <CheckCircleOutlined /> : <ExclamationCircleOutlined />}>
+          {enabled ? 'Enabled' : 'Disabled'}
+        </Tag>
+      ),
     },
     {
-      title: '更新时间',
+      title: 'Updated At',
       dataIndex: 'updated_at',
       key: 'updated_at',
       render: (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm'),
     },
     {
-      title: '操作',
+      title: 'Actions',
       key: 'actions',
       width: 200,
       render: (text: any, record: Agent) => (
@@ -306,7 +286,7 @@ const Agents: React.FC = () => {
             onClick={() => handleViewAgent(record)}
             size="small"
           >
-            查看
+            View
           </Button>
           <PermissionGuard permission="view">
             <Button
@@ -315,14 +295,14 @@ const Agents: React.FC = () => {
               onClick={() => handleOpenModal(record)}
               size="small"
             >
-              编辑
+              Edit
             </Button>
             <Popconfirm
-              title="确定要删除这个Agent吗？"
-              description="删除后将无法恢复，请谨慎操作。"
+              title="Are you sure you want to delete this Agent?"
+              description="Once deleted, it cannot be recovered. Please proceed with caution."
               onConfirm={() => handleDeleteAgent(record.id)}
-              okText="确定"
-              cancelText="取消"
+              okText="Yes"
+              cancelText="No"
             >
               <Button
                 type="text"
@@ -330,7 +310,7 @@ const Agents: React.FC = () => {
                 icon={<DeleteOutlined />}
                 size="small"
               >
-                删除
+                Delete
               </Button>
             </Popconfirm>
           </PermissionGuard>
@@ -341,16 +321,16 @@ const Agents: React.FC = () => {
 
   return (
     <div>
-      {/* 页面标题 */}
+      {/* Page title */}
       <Row justify="space-between" align="middle" style={{ marginBottom: '24px' }}>
         <Col>
-          <Title level={2} style={{ margin: 0 }}>Agent配置</Title>
-          <Text type="secondary">管理第三方AI服务接入配置</Text>
+          <Title level={2} style={{ margin: 0 }}>Agent Configuration</Title>
+          <Text type="secondary">Manage third-party AI service access configuration</Text>
         </Col>
         <Col>
           <Space>
             <Button icon={<ReloadOutlined />} onClick={() => loadAgents()}>
-              刷新
+              Refresh
             </Button>
             <PermissionGuard permission="view">
               <Button
@@ -358,19 +338,19 @@ const Agents: React.FC = () => {
                 icon={<PlusOutlined />}
                 onClick={() => handleOpenModal()}
               >
-                新增Agent
+                Add Agent
               </Button>
             </PermissionGuard>
           </Space>
         </Col>
       </Row>
 
-      {/* 搜索和过滤 */}
+      {/* Search and filter */}
       <Card style={{ marginBottom: '16px' }}>
         <Row gutter={[16, 16]}>
           <Col xs={24} sm={12} md={8}>
             <Search
-              placeholder="搜索Agent名称、类型或模型"
+              placeholder="Search Agent name, type or description"
               allowClear
               enterButton={<SearchOutlined />}
               onSearch={handleSearch}
@@ -380,7 +360,7 @@ const Agents: React.FC = () => {
         </Row>
       </Card>
 
-      {/* Agent表格 */}
+      {/* Agent table */}
       <Card>
         <Table
           columns={columns}
@@ -392,16 +372,16 @@ const Agents: React.FC = () => {
             showSizeChanger: true,
             showQuickJumper: true,
             showTotal: (total, range) =>
-              `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
+              `${range[0]}-${range[1]} of ${total}`, // TODO: translate
           }}
           onChange={handleTableChange}
           scroll={{ x: 1000 }}
         />
       </Card>
 
-      {/* 创建/编辑Agent模态框 */}
+      {/* Create/edit Agent modal */}
       <Modal
-        title={editingAgent ? '编辑Agent' : '新增Agent'}
+        title={editingAgent ? 'Edit Agent' : 'Add Agent'}
         open={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
         footer={null}
@@ -414,8 +394,8 @@ const Agents: React.FC = () => {
           autoComplete="off"
         >
           <Alert
-            message="配置说明"
-            description="Agent配置后将自动生成连接器API密钥，用于统一访问管理。请确保源API密钥的有效性。"
+            message="Configuration instructions"
+            description="After configuring the Agent, the connector API key will be automatically generated for unified access management. Please ensure the validity of the source API key."
             type="info"
             showIcon
             style={{ marginBottom: '24px' }}
@@ -425,22 +405,22 @@ const Agents: React.FC = () => {
             <Col span={12}>
               <Form.Item
                 name="name"
-                label="Agent名称"
+                label="Agent name"
                 rules={[
-                  { required: true, message: '请输入Agent名称' },
-                  { max: 100, message: 'Agent名称最多100个字符' },
+                  { required: true, message: 'Please enter Agent name' },
+                  { max: 100, message: 'Agent name can only be up to 100 characters' },
                 ]}
               >
-                <Input placeholder="请输入Agent名称" />
+                <Input placeholder="Please enter Agent name" />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item
                 name="type"
-                label="Agent类型"
-                rules={[{ required: true, message: '请选择Agent类型' }]}
+                label="Agent type"
+                rules={[{ required: true, message: 'Please select Agent type' }]}
               >
-                <Select placeholder="请选择Agent类型" onChange={handleTypeChange}>
+                <Select placeholder="Please select Agent type">
                   {typeOptions.map(option => (
                     <Option key={option.value} value={option.value}>
                       <Space>
@@ -455,51 +435,53 @@ const Agents: React.FC = () => {
           </Row>
 
           <Row gutter={16}>
-            <Col span={12}>
+            <Col span={16}>
               <Form.Item
-                name="endpoint"
-                label="API端点"
+                name="url"
+                label="API Endpoint"
                 rules={[
-                  { required: true, message: '请输入API端点' },
-                  { type: 'url', message: '请输入有效的URL' },
+                  { required: true, message: 'Please enter API Endpoint' },
+                  { type: 'url', message: 'Please enter a valid URL' },
                 ]}
               >
                 <Input placeholder="https://api.example.com/v1" />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item
-                name="model"
-                label="模型名称"
-                rules={[{ required: true, message: '请输入模型名称' }]}
+                name="qps"
+                label="QPS Limit"
+                rules={[
+                  { required: true, message: 'Please enter QPS Limit' },
+                  { type: 'number', min: 1, message: 'QPS must be greater than 0' },
+                ]}
               >
-                <Select placeholder="请选择或输入模型名称" mode="tags" maxTagCount={1}>
-                  {form.getFieldValue('type') && 
-                    modelOptions[form.getFieldValue('type') as keyof typeof modelOptions]?.map(model => (
-                      <Option key={model} value={model}>{model}</Option>
-                    ))
-                  }
-                </Select>
+                <InputNumber
+                  placeholder="10"
+                  min={1}
+                  max={1000}
+                  style={{ width: '100%' }}
+                />
               </Form.Item>
             </Col>
           </Row>
 
           <Form.Item
             name="source_api_key"
-            label="源API密钥"
-            rules={[{ required: true, message: '请输入源API密钥' }]}
+            label="Source API Key"
+            rules={[{ required: true, message: 'Please enter Source API Key' }]}
           >
-            <Input.Password placeholder="请输入第三方服务的API密钥" />
+            <Input.Password placeholder="Please enter Source API Key" />
           </Form.Item>
 
           <Form.Item
             name="description"
-            label="描述"
-            rules={[{ max: 500, message: '描述最多500个字符' }]}
+            label="Description"
+            rules={[{ max: 500, message: 'Description can only be up to 500 characters' }]}
           >
             <TextArea
               rows={3}
-              placeholder="请输入Agent描述信息"
+              placeholder="Please enter Agent description"
               showCount
               maxLength={500}
             />
@@ -509,19 +491,19 @@ const Agents: React.FC = () => {
             <Col span={8}>
               <Form.Item
                 name="support_streaming"
-                label="流式响应"
+                label="Streaming"
                 valuePropName="checked"
               >
-                <Switch checkedChildren="支持" unCheckedChildren="不支持" />
+                <Switch checkedChildren="Supported" unCheckedChildren="Not supported" />
               </Form.Item>
             </Col>
             <Col span={8}>
               <Form.Item
                 name="response_format"
-                label="响应格式"
-                rules={[{ required: true, message: '请选择响应格式' }]}
+                label="Response Format"
+                rules={[{ required: true, message: 'Please select Response Format' }]}
               >
-                <Select placeholder="请选择响应格式">
+                <Select placeholder="Please select Response Format">
                   {responseFormatOptions.map(option => (
                     <Option key={option.value} value={option.value}>
                       {option.label}
@@ -532,17 +514,11 @@ const Agents: React.FC = () => {
             </Col>
             <Col span={8}>
               <Form.Item
-                name="status"
-                label="状态"
-                rules={[{ required: true, message: '请选择状态' }]}
+                name="enabled"
+                label="Enabled"
+                valuePropName="checked"
               >
-                <Select placeholder="请选择状态">
-                  {statusOptions.map(option => (
-                    <Option key={option.value} value={option.value}>
-                      <Tag color={option.color}>{option.label}</Tag>
-                    </Option>
-                  ))}
-                </Select>
+                <Switch checkedChildren="Enabled" unCheckedChildren="Disabled" />
               </Form.Item>
             </Col>
           </Row>
@@ -550,19 +526,19 @@ const Agents: React.FC = () => {
           <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
             <Space>
               <Button onClick={() => setIsModalVisible(false)}>
-                取消
+                Cancel
               </Button>
               <Button type="primary" htmlType="submit">
-                {editingAgent ? '更新' : '创建'}
+                {editingAgent ? 'Update' : 'Create'}
               </Button>
             </Space>
           </Form.Item>
         </Form>
       </Modal>
 
-      {/* Agent详情抽屉 */}
+      {/* Agent details drawer */}
       <Drawer
-        title="Agent详情"
+        title="Agent details"
         placement="right"
         onClose={() => setIsViewDrawerVisible(false)}
         open={isViewDrawerVisible}
@@ -588,39 +564,39 @@ const Agents: React.FC = () => {
               <Descriptions.Item label="Agent ID">
                 <Text code>{selectedAgent.agent_id}</Text>
               </Descriptions.Item>
-              <Descriptions.Item label="模型">
-                <Text code>{selectedAgent.model}</Text>
+              <Descriptions.Item label="API Endpoint">
+                <Text copyable>{selectedAgent.url}</Text>
               </Descriptions.Item>
-              <Descriptions.Item label="API端点">
-                <Text copyable>{selectedAgent.endpoint}</Text>
+              <Descriptions.Item label="QPS Limit">
+                <Text code>{selectedAgent.qps}</Text>
               </Descriptions.Item>
-              <Descriptions.Item label="源API密钥">
+              <Descriptions.Item label="Source API Key">
                 <Text code>{hideApiKey(selectedAgent.source_api_key)}</Text>
               </Descriptions.Item>
-              <Descriptions.Item label="连接器密钥">
+              <Descriptions.Item label="Connector API Key">
                 <Text code copyable>{selectedAgent.connector_api_key}</Text>
               </Descriptions.Item>
-              <Descriptions.Item label="流式响应">
+              <Descriptions.Item label="Streaming">
                 {selectedAgent.support_streaming ? 
-                  <Tag color="green" icon={<CheckCircleOutlined />}>支持</Tag> : 
-                  <Tag color="default">不支持</Tag>
+                  <Tag color="green" icon={<CheckCircleOutlined />}>Supported</Tag> : 
+                  <Tag color="default">Not supported</Tag>
                 }
               </Descriptions.Item>
-              <Descriptions.Item label="响应格式">
+              <Descriptions.Item label="Response Format">
                 <Tag>{selectedAgent.response_format}</Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="状态">
-                <Tag color={selectedAgent.status === 'active' ? 'green' : 'red'}>
-                  {statusOptions.find(opt => opt.value === selectedAgent.status)?.label || selectedAgent.status}
+              <Descriptions.Item label="Status">
+                <Tag color={selectedAgent.enabled ? 'green' : 'red'}>
+                  {selectedAgent.enabled ? 'Enabled' : 'Disabled'}
                 </Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="描述">
-                {selectedAgent.description || '暂无描述'}
+              <Descriptions.Item label="Description">
+                {selectedAgent.description || 'No description'}
               </Descriptions.Item>
-              <Descriptions.Item label="创建时间">
+              <Descriptions.Item label="Created At">
                 {dayjs(selectedAgent.created_at).format('YYYY-MM-DD HH:mm:ss')}
               </Descriptions.Item>
-              <Descriptions.Item label="更新时间">
+              <Descriptions.Item label="Updated At">
                 {dayjs(selectedAgent.updated_at).format('YYYY-MM-DD HH:mm:ss')}
               </Descriptions.Item>
             </Descriptions>
@@ -628,13 +604,13 @@ const Agents: React.FC = () => {
             <Divider />
 
             <Alert
-              message="使用说明"
+              message="Usage instructions"
               description={
                 <div>
-                  <p>使用连接器API密钥访问此Agent：</p>
+                  <p>Use the connector API key to access this Agent:</p>
                   <Text code>Authorization: Bearer {selectedAgent.connector_api_key}</Text>
                   <p style={{ marginTop: '8px' }}>
-                    数据流API端点：<Text code>http://localhost:8082/api/v1/chat</Text>
+                    Data flow API endpoint: <Text code>http://localhost:8082/api/v1/dataflow/chat/{selectedAgent.agent_id}</Text>
                   </p>
                 </div>
               }

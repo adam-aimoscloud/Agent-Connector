@@ -69,7 +69,6 @@ func InitDatabase() error {
 		&UserSession{},
 		&UserLoginLog{},
 		&SystemConfig{},
-		&UserRateLimit{},
 		&Agent{},
 	)
 
@@ -100,11 +99,7 @@ func initDefaultSystemConfig() error {
 	DB.Model(&SystemConfig{}).Count(&count)
 
 	if count == 0 {
-		defaultConfig := &SystemConfig{
-			RateLimitMode:   RateLimitModePriority,
-			DefaultPriority: 5,
-			DefaultQPS:      10,
-		}
+		defaultConfig := &SystemConfig{}
 		return DB.Create(defaultConfig).Error
 	}
 

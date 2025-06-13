@@ -10,30 +10,37 @@ import (
 // SetupDataFlowRoutes set data flow API routes
 func SetupDataFlowRoutes(router *gin.Engine) {
 	handler := NewDataFlowAPIHandler()
+	middleware := NewDataFlowMiddleware()
 
 	// data flow API routes group
 	dataFlowAPI := router.Group("/api/v1/dataflow")
 	{
-		// health check
+		// health check (no auth required)
 		dataFlowAPI.GET("/health", handler.HealthCheck)
 
-		// general chat interface - support multiple agent types
-		dataFlowAPI.POST("/chat/:agent_id", handler.HandleChat)
-
-		// OpenAI compatible interface
-		openaiAPI := dataFlowAPI.Group("/openai")
+		// protected routes with authentication and rate limiting
+		protected := dataFlowAPI.Group("")
+		protected.Use(middleware.AuthenticationMiddleware())
+		protected.Use(middleware.RateLimitMiddleware())
 		{
-			// OpenAI format chat completion
-			openaiAPI.POST("/chat/completions/:agent_id", handler.HandleChat)
-			openaiAPI.POST("/:agent_id/chat/completions", handler.HandleChat)
-		}
+			// general chat interface - support multiple agent types
+			protected.POST("/chat/:agent_id", handler.HandleChat)
 
-		// Dify compatible interface
-		difyAPI := dataFlowAPI.Group("/dify")
-		{
-			// Dify format chat message
-			difyAPI.POST("/chat-messages/:agent_id", handler.HandleChat)
-			difyAPI.POST("/:agent_id/chat-messages", handler.HandleChat)
+			// OpenAI compatible interface
+			openaiAPI := protected.Group("/openai")
+			{
+				// OpenAI format chat completion
+				openaiAPI.POST("/chat/completions/:agent_id", handler.HandleChat)
+				openaiAPI.POST("/:agent_id/chat/completions", handler.HandleChat)
+			}
+
+			// Dify compatible interface
+			difyAPI := protected.Group("/dify")
+			{
+				// Dify format chat message
+				difyAPI.POST("/chat-messages/:agent_id", handler.HandleChat)
+				difyAPI.POST("/:agent_id/chat-messages", handler.HandleChat)
+			}
 		}
 	}
 }

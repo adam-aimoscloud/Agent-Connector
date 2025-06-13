@@ -132,85 +132,34 @@ export interface ChangePasswordRequest {
 export interface Agent {
   id: number;
   name: string;
-  type: 'openai' | 'dify' | 'custom';
-  endpoint: string;
+  type: 'openai' | 'openai_compatible' | 'dify';
+  url: string;
   source_api_key: string;
   connector_api_key: string;
   agent_id: string;
-  model: string;
+  qps: number;
+  enabled: boolean;
   description: string;
   support_streaming: boolean;
   response_format: 'openai' | 'dify';
-  status: 'active' | 'inactive';
   created_at: string;
   updated_at: string;
 }
 
 export interface CreateAgentRequest {
   name: string;
-  type: 'openai' | 'dify' | 'custom';
-  endpoint: string;
+  type: 'openai' | 'openai_compatible' | 'dify';
+  url: string;
   source_api_key: string;
-  model: string;
+  qps: number;
+  enabled: boolean;
   description: string;
   support_streaming: boolean;
   response_format: 'openai' | 'dify';
-  status: 'active' | 'inactive';
-}
-
-export interface UserRateLimit {
-  id: number;
-  user_id: number;
-  agent_id: number;
-  priority: number;
-  qps_limit: number;
-  daily_limit: number;
-  monthly_limit: number;
-  created_at: string;
-  updated_at: string;
-  user?: User;
-  agent?: Agent;
-}
-
-export interface CreateUserRateLimitRequest {
-  user_id: number;
-  agent_id: number;
-  priority: number;
-  qps_limit: number;
-  daily_limit: number;
-  monthly_limit: number;
-}
-
-export interface RateLimit {
-  id: number;
-  name: string;
-  limit_type: 'requests_per_minute' | 'tokens_per_minute' | 'requests_per_hour' | 'requests_per_day' | 'tokens_per_day';
-  limit_value: number;
-  scope: 'global' | 'user' | 'agent' | 'ip';
-  scope_value: string;
-  status: 'active' | 'inactive';
-  description: string;
-  current_usage?: number;
-  reset_time?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CreateRateLimitRequest {
-  name: string;
-  limit_type: 'requests_per_minute' | 'tokens_per_minute' | 'requests_per_hour' | 'requests_per_day' | 'tokens_per_day';
-  limit_value: number;
-  scope: 'global' | 'user' | 'agent' | 'ip';
-  scope_value: string;
-  status: 'active' | 'inactive';
-  description: string;
 }
 
 export interface SystemConfig {
   id: number;
-  rate_limit_mode: 'priority' | 'fair' | 'weighted';
-  default_priority: number;
-  default_qps: number;
   created_at: string;
   updated_at: string;
 }
@@ -244,8 +193,6 @@ export const authApi = {
   // 用户登录
   login: (data: LoginRequest): Promise<AxiosResponse<ApiResponse<LoginResponse>>> =>
     api.post('/api/v1/auth/login', data),
-
-
 
   // 用户登出
   logout: (): Promise<AxiosResponse<ApiResponse<null>>> =>
@@ -314,7 +261,7 @@ export const systemApi = {
     api.post('/api/v1/system/cleanup-sessions'),
 };
 
-// 控制流API（Agent和限流配置）
+// 控制流API（Agent配置）
 export const controlFlowApi_endpoints = {
   // 系统配置
   getSystemConfig: (): Promise<AxiosResponse<ApiResponse<SystemConfig>>> =>
@@ -325,64 +272,23 @@ export const controlFlowApi_endpoints = {
 
   // Agent管理
   getAgents: (page = 1, pageSize = 10): Promise<AxiosResponse<PaginationResponse<Agent>>> =>
-    controlFlowApi.get(`/api/v1/controlflow/agents?page=${page}&page_size=${pageSize}`),
+    controlFlowApi.get(`/api/v1/agents?page=${page}&page_size=${pageSize}`),
 
   createAgent: (data: CreateAgentRequest): Promise<AxiosResponse<ApiResponse<Agent>>> =>
-    controlFlowApi.post('/api/v1/controlflow/agents', data),
+    controlFlowApi.post('/api/v1/agents', data),
 
   getAgent: (id: number): Promise<AxiosResponse<ApiResponse<Agent>>> =>
-    controlFlowApi.get(`/api/v1/controlflow/agents/${id}`),
+    controlFlowApi.get(`/api/v1/agents/${id}`),
 
   updateAgent: (id: number, data: Partial<CreateAgentRequest>): Promise<AxiosResponse<ApiResponse<Agent>>> =>
-    controlFlowApi.put(`/api/v1/controlflow/agents/${id}`, data),
+    controlFlowApi.put(`/api/v1/agents/${id}`, data),
 
   deleteAgent: (id: number): Promise<AxiosResponse<ApiResponse<null>>> =>
-    controlFlowApi.delete(`/api/v1/controlflow/agents/${id}`),
-
-  // 用户限流配置
-  getUserRateLimits: (page = 1, pageSize = 10): Promise<AxiosResponse<PaginationResponse<UserRateLimit>>> =>
-    controlFlowApi.get(`/api/v1/controlflow/user-rate-limits?page=${page}&page_size=${pageSize}`),
-
-  createUserRateLimit: (data: CreateUserRateLimitRequest): Promise<AxiosResponse<ApiResponse<UserRateLimit>>> =>
-    controlFlowApi.post('/api/v1/controlflow/user-rate-limits', data),
-
-  getUserRateLimit: (id: number): Promise<AxiosResponse<ApiResponse<UserRateLimit>>> =>
-    controlFlowApi.get(`/api/v1/controlflow/user-rate-limits/${id}`),
-
-  updateUserRateLimit: (id: number, data: Partial<CreateUserRateLimitRequest>): Promise<AxiosResponse<ApiResponse<UserRateLimit>>> =>
-    controlFlowApi.put(`/api/v1/controlflow/user-rate-limits/${id}`, data),
-
-  deleteUserRateLimit: (id: number): Promise<AxiosResponse<ApiResponse<null>>> =>
-    controlFlowApi.delete(`/api/v1/controlflow/user-rate-limits/${id}`),
+    controlFlowApi.delete(`/api/v1/agents/${id}`),
 
   // 健康检查
   healthCheck: (): Promise<AxiosResponse<ApiResponse<any>>> =>
     controlFlowApi.get('/api/v1/controlflow/health'),
-};
-
-// 创建数据流API实例
-const dataFlowApi = createAxiosInstance('dataFlow');
-
-export const dataFlowApi_endpoints = {
-  // 限流配置管理
-  getRateLimits: (page = 1, pageSize = 10): Promise<AxiosResponse<PaginationResponse<RateLimit>>> =>
-    dataFlowApi.get(`/api/v1/dataflow/rate-limits?page=${page}&page_size=${pageSize}`),
-
-  createRateLimit: (data: CreateRateLimitRequest): Promise<AxiosResponse<ApiResponse<RateLimit>>> =>
-    dataFlowApi.post('/api/v1/dataflow/rate-limits', data),
-
-  getRateLimit: (id: number): Promise<AxiosResponse<ApiResponse<RateLimit>>> =>
-    dataFlowApi.get(`/api/v1/dataflow/rate-limits/${id}`),
-
-  updateRateLimit: (id: number, data: Partial<CreateRateLimitRequest>): Promise<AxiosResponse<ApiResponse<RateLimit>>> =>
-    dataFlowApi.put(`/api/v1/dataflow/rate-limits/${id}`, data),
-
-  deleteRateLimit: (id: number): Promise<AxiosResponse<ApiResponse<null>>> =>
-    dataFlowApi.delete(`/api/v1/dataflow/rate-limits/${id}`),
-
-  // 健康检查
-  healthCheck: (): Promise<AxiosResponse<ApiResponse<any>>> =>
-    dataFlowApi.get('/api/v1/dataflow/health'),
 };
 
 export default api; 

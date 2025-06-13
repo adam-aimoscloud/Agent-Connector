@@ -42,7 +42,7 @@ const Profile: React.FC = () => {
   const [form] = Form.useForm();
   const [passwordForm] = Form.useForm();
 
-  // 初始化表单数据
+  // Initialize form data
   useEffect(() => {
     if (user) {
       form.setFieldsValue({
@@ -53,7 +53,7 @@ const Profile: React.FC = () => {
     }
   }, [user, form]);
 
-  // 加载登录日志
+  // Load login logs
   const loadLoginLogs = async () => {
     setLogsLoading(true);
     try {
@@ -61,11 +61,11 @@ const Profile: React.FC = () => {
       if (response.data.code === 200) {
         setLoginLogs(response.data.data || []);
       } else {
-        throw new Error(response.data.message || '获取登录日志失败');
+        throw new Error(response.data.message || 'Failed to get login logs');
       }
     } catch (error: any) {
       console.error('Failed to load login logs:', error);
-      message.error(error.response?.data?.message || '加载登录日志失败');
+      message.error(error.response?.data?.message || 'Failed to load login logs');
       setLoginLogs([]);
     } finally {
       setLogsLoading(false);
@@ -76,75 +76,75 @@ const Profile: React.FC = () => {
     loadLoginLogs();
   }, []);
 
-  // 更新个人信息
+  // Update personal information
   const handleUpdateProfile = async (values: any) => {
     setLoading(true);
     try {
       await updateProfile(values);
-      message.success('个人信息更新成功');
+      message.success('Personal information updated successfully');
     } catch (error) {
       console.error('Update profile failed:', error);
-      message.error('个人信息更新失败');
+      message.error('Personal information update failed');
     } finally {
       setLoading(false);
     }
   };
 
-  // 修改密码
+  // Change password
   const handleChangePassword = async (values: ChangePasswordRequest) => {
     setPasswordLoading(true);
     try {
       await authApi.changePassword(values);
-      message.success('密码修改成功');
+      message.success('Password changed successfully');
       passwordForm.resetFields();
     } catch (error: any) {
       console.error('Change password failed:', error);
-      message.error(error.response?.data?.message || '密码修改失败');
+      message.error(error.response?.data?.message || 'Password change failed');
     } finally {
       setPasswordLoading(false);
     }
   };
 
-  // 头像上传处理
+  // Avatar upload processing
   const handleAvatarUpload = (info: any) => {
     if (info.file.status === 'done') {
-      message.success('头像上传成功');
-      // 这里应该更新用户头像URL
+      message.success('Avatar upload successfully');
+      // Here should update user avatar URL
     } else if (info.file.status === 'error') {
-      message.error('头像上传失败');
+      message.error('Avatar upload failed');
     }
   };
 
-  // 获取角色显示
+  // Get role display
   const getRoleDisplay = (role: string) => {
     const roleMap = {
-      admin: { label: '管理员', color: 'red' },
-      operator: { label: '操作员', color: 'orange' },
-      user: { label: '用户', color: 'blue' },
-      readonly: { label: '只读用户', color: 'gray' },
+      admin: { label: 'Admin', color: 'red' },
+      operator: { label: 'Operator', color: 'orange' },
+      user: { label: 'User', color: 'blue' },
+      readonly: { label: 'Readonly user', color: 'gray' },
     };
     return roleMap[role as keyof typeof roleMap] || { label: role, color: 'default' };
   };
 
-  // 登录日志表格列
+  // Login log table columns
   const logColumns = [
     {
-      title: 'IP地址',
+      title: 'IP address',
       dataIndex: 'ip_address',
       key: 'ip_address',
     },
     {
-      title: '状态',
+      title: 'Status',
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => (
         <Tag color={status === 'success' ? 'green' : 'red'}>
-          {status === 'success' ? '成功' : '失败'}
+          {status === 'success' ? 'Success' : 'Failed'}
         </Tag>
       ),
     },
     {
-      title: '浏览器',
+      title: 'Browser',
       dataIndex: 'user_agent',
       key: 'user_agent',
       render: (userAgent: string) => (
@@ -154,7 +154,7 @@ const Profile: React.FC = () => {
       ),
     },
     {
-      title: '时间',
+      title: 'Time',
       dataIndex: 'created_at',
       key: 'created_at',
       render: (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm:ss'),
@@ -162,15 +162,15 @@ const Profile: React.FC = () => {
   ];
 
   if (!user) {
-    return <div>加载中...</div>;
+    return <div>Loading...</div>;
   }
 
   return (
     <div>
-      <Title level={2}>个人资料</Title>
+      <Title level={2}>Personal information</Title>
       
       <Tabs defaultActiveKey="profile">
-        <TabPane tab="基本信息" key="profile" icon={<UserOutlined />}>
+        <TabPane tab="Basic information" key="profile" icon={<UserOutlined />}>
           <Row gutter={24}>
             <Col xs={24} lg={8}>
               <Card>
@@ -183,23 +183,23 @@ const Profile: React.FC = () => {
                       action="/api/v1/upload/avatar"
                       onChange={handleAvatarUpload}
                     >
-                      <Button icon={<UploadOutlined />}>更换头像</Button>
+                      <Button icon={<UploadOutlined />}>Change avatar</Button>
                     </Upload>
                   </div>
                   <Divider />
                   <div style={{ textAlign: 'left' }}>
-                    <p><strong>用户名:</strong> {user.username}</p>
-                    <p><strong>邮箱:</strong> {user.email}</p>
+                    <p><strong>Username:</strong> {user.username}</p>
+                    <p><strong>Email:</strong> {user.email}</p>
                     <p>
-                      <strong>角色:</strong> 
+                      <strong>Role:</strong> 
                       <Tag color={getRoleDisplay(user.role).color} style={{ marginLeft: '8px' }}>
                         {getRoleDisplay(user.role).label}
                       </Tag>
                     </p>
-                    <p><strong>创建时间:</strong> {dayjs(user.created_at).format('YYYY-MM-DD')}</p>
+                    <p><strong>Created time:</strong> {dayjs(user.created_at).format('YYYY-MM-DD')}</p>
                     <p>
-                      <strong>最后登录:</strong> 
-                      {user.last_login ? dayjs(user.last_login).format('YYYY-MM-DD HH:mm') : '从未登录'}
+                      <strong>Last login:</strong> 
+                      {user.last_login ? dayjs(user.last_login).format('YYYY-MM-DD HH:mm') : 'Never logged in'}
                     </p>
                   </div>
                 </div>
@@ -207,7 +207,7 @@ const Profile: React.FC = () => {
             </Col>
             
             <Col xs={24} lg={16}>
-              <Card title="编辑个人信息" extra={<EditOutlined />}>
+              <Card title="Edit personal information" extra={<EditOutlined />}>
                 <Form
                   form={form}
                   layout="vertical"
@@ -218,38 +218,38 @@ const Profile: React.FC = () => {
                     <Col span={12}>
                       <Form.Item
                         name="username"
-                        label="用户名"
+                        label="Username"
                         rules={[
-                          { required: true, message: '请输入用户名' },
-                          { min: 3, message: '用户名至少3个字符' },
+                          { required: true, message: 'Please enter username' },
+                          { min: 3, message: 'Username must be at least 3 characters' },
                         ]}
                       >
-                        <Input placeholder="请输入用户名" disabled />
+                        <Input placeholder="Please enter username" disabled />
                       </Form.Item>
                     </Col>
                     <Col span={12}>
                       <Form.Item
                         name="email"
-                        label="邮箱"
+                        label="Email"
                         rules={[
-                          { required: true, message: '请输入邮箱' },
-                          { type: 'email', message: '请输入有效的邮箱地址' },
+                          { required: true, message: 'Please enter email' },
+                          { type: 'email', message: 'Please enter a valid email address' },
                         ]}
                       >
-                        <Input placeholder="请输入邮箱" />
+                        <Input placeholder="Please enter email" />
                       </Form.Item>
                     </Col>
                   </Row>
                   
                   <Form.Item
                     name="full_name"
-                    label="姓名"
+                    label="Name"
                     rules={[
-                      { required: true, message: '请输入姓名' },
-                      { max: 100, message: '姓名最多100个字符' },
+                      { required: true, message: 'Please enter name' },
+                      { max: 100, message: 'Name must be at most 100 characters' },
                     ]}
                   >
-                    <Input placeholder="请输入姓名" />
+                    <Input placeholder="Please enter name" />
                   </Form.Item>
                   
                   <Form.Item>
@@ -259,7 +259,7 @@ const Profile: React.FC = () => {
                       loading={loading}
                       icon={<SaveOutlined />}
                     >
-                      保存更改
+                      Save changes
                     </Button>
                   </Form.Item>
                 </Form>
@@ -268,13 +268,13 @@ const Profile: React.FC = () => {
           </Row>
         </TabPane>
         
-        <TabPane tab="修改密码" key="password" icon={<LockOutlined />}>
+        <TabPane tab="Change password" key="password" icon={<LockOutlined />}>
           <Row justify="center">
             <Col xs={24} md={12}>
-              <Card title="修改密码" extra={<LockOutlined />}>
+              <Card title="Change password" extra={<LockOutlined />}>
                 <Alert
-                  message="安全提醒"
-                  description="为了账户安全，建议定期更换密码。密码应包含字母、数字，长度至少6位。"
+                  message="Security reminder"
+                  description="For account security, it is recommended to change the password regularly. The password should contain letters, numbers, and be at least 6 characters long."
                   type="info"
                   showIcon
                   style={{ marginBottom: '24px' }}
@@ -288,40 +288,40 @@ const Profile: React.FC = () => {
                 >
                   <Form.Item
                     name="old_password"
-                    label="当前密码"
-                    rules={[{ required: true, message: '请输入当前密码' }]}
+                    label="Current password"
+                    rules={[{ required: true, message: 'Please enter current password' }]}
                   >
-                    <Input.Password placeholder="请输入当前密码" />
+                    <Input.Password placeholder="Please enter current password" />
                   </Form.Item>
                   
                   <Form.Item
                     name="new_password"
-                    label="新密码"
+                    label="New password"
                     rules={[
-                      { required: true, message: '请输入新密码' },
-                      { min: 6, message: '密码至少6个字符' },
+                      { required: true, message: 'Please enter new password' },
+                      { min: 6, message: 'Password must be at least 6 characters' },
                     ]}
                   >
-                    <Input.Password placeholder="请输入新密码" />
+                    <Input.Password placeholder="Please enter new password" />
                   </Form.Item>
                   
                   <Form.Item
                     name="confirm_password"
-                    label="确认新密码"
+                    label="Confirm new password"
                     dependencies={['new_password']}
                     rules={[
-                      { required: true, message: '请确认新密码' },
+                      { required: true, message: 'Please confirm new password' },
                       ({ getFieldValue }) => ({
                         validator(_, value) {
                           if (!value || getFieldValue('new_password') === value) {
                             return Promise.resolve();
                           }
-                          return Promise.reject(new Error('两次输入的密码不一致'));
+                          return Promise.reject(new Error('The two passwords entered are inconsistent'));
                         },
                       }),
                     ]}
                   >
-                    <Input.Password placeholder="请再次输入新密码" />
+                    <Input.Password placeholder="Please enter new password again" />
                   </Form.Item>
                   
                   <Form.Item>
@@ -332,7 +332,7 @@ const Profile: React.FC = () => {
                       icon={<LockOutlined />}
                       block
                     >
-                      修改密码
+                      Change password
                     </Button>
                   </Form.Item>
                 </Form>
@@ -341,8 +341,8 @@ const Profile: React.FC = () => {
           </Row>
         </TabPane>
         
-        <TabPane tab="登录日志" key="logs" icon={<HistoryOutlined />}>
-          <Card title="登录日志" extra={<HistoryOutlined />}>
+        <TabPane tab="Login logs" key="logs" icon={<HistoryOutlined />}>
+          <Card title="Login logs" extra={<HistoryOutlined />}>
             <Table
               columns={logColumns}
               dataSource={loginLogs}
@@ -353,7 +353,7 @@ const Profile: React.FC = () => {
                 showSizeChanger: true,
                 showQuickJumper: true,
                 showTotal: (total, range) =>
-                  `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
+                  `${range[0]}-${range[1]} of ${total}`,
               }}
             />
           </Card>

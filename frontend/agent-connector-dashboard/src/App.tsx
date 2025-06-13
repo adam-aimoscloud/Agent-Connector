@@ -13,7 +13,6 @@ import Login from './pages/Login';
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 const Users = React.lazy(() => import('./pages/Users'));
 const Agents = React.lazy(() => import('./pages/Agents'));
-const RateLimits = React.lazy(() => import('./pages/RateLimits'));
 const Profile = React.lazy(() => import('./pages/Profile'));
 const SystemSettings = React.lazy(() => import('./pages/SystemSettings'));
 
@@ -131,9 +130,8 @@ const App: React.FC = () => {
                 <Route index element={<Dashboard />} />
                 <Route path="users" element={<Users />} />
                 <Route path="agents" element={<Agents />} />
-                <Route path="rate-limits" element={<RateLimits />} />
                 <Route path="profile" element={<Profile />} />
-                <Route path="system" element={<SystemSettings />} />
+                <Route path="settings" element={<SystemSettings />} />
               </Route>
 
               {/* 404重定向 */}

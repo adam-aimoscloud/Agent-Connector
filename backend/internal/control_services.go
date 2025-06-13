@@ -17,11 +17,7 @@ func (s *SystemConfigService) GetSystemConfig() (*SystemConfig, error) {
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			// if no configuration, return default configuration
-			return &SystemConfig{
-				RateLimitMode:   RateLimitModePriority,
-				DefaultPriority: 5,
-				DefaultQPS:      10,
-			}, nil
+			return &SystemConfig{}, nil
 		}
 		return nil, err
 	}
@@ -30,11 +26,6 @@ func (s *SystemConfigService) GetSystemConfig() (*SystemConfig, error) {
 
 // UpdateSystemConfig update system configuration
 func (s *SystemConfigService) UpdateSystemConfig(config *SystemConfig) error {
-	// validate configuration
-	if err := s.validateSystemConfig(config); err != nil {
-		return err
-	}
-
 	var existingConfig SystemConfig
 	err := DB.First(&existingConfig).Error
 
@@ -48,134 +39,6 @@ func (s *SystemConfigService) UpdateSystemConfig(config *SystemConfig) error {
 	// update existing configuration
 	config.ID = existingConfig.ID
 	return DB.Save(config).Error
-}
-
-// validateSystemConfig validate system configuration
-func (s *SystemConfigService) validateSystemConfig(config *SystemConfig) error {
-	if config.RateLimitMode != RateLimitModePriority && config.RateLimitMode != RateLimitModeQPS {
-		return errors.New("invalid rate limit mode")
-	}
-
-	if config.DefaultPriority < 1 || config.DefaultPriority > 10 {
-		return errors.New("default priority must be between 1 and 10")
-	}
-
-	if config.DefaultQPS <= 0 {
-		return errors.New("default QPS must be greater than 0")
-	}
-
-	return nil
-}
-
-// UserRateLimitService user rate limit service
-type UserRateLimitService struct{}
-
-// GetUserRateLimit get user rate limit configuration
-func (s *UserRateLimitService) GetUserRateLimit(userID string) (*UserRateLimit, error) {
-	var rateLimit UserRateLimit
-	err := DB.Where("user_id = ?", userID).First(&rateLimit).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil // user has no custom configuration
-		}
-		return nil, err
-	}
-	return &rateLimit, nil
-}
-
-// ListUserRateLimits get user rate limit configuration list
-func (s *UserRateLimitService) ListUserRateLimits(page, pageSize int) ([]*UserRateLimit, int64, error) {
-	var rateLimits []*UserRateLimit
-	var total int64
-
-	// calculate total
-	err := DB.Model(&UserRateLimit{}).Count(&total).Error
-	if err != nil {
-		return nil, 0, err
-	}
-
-	// paginated query
-	offset := (page - 1) * pageSize
-	err = DB.Offset(offset).Limit(pageSize).Find(&rateLimits).Error
-	if err != nil {
-		return nil, 0, err
-	}
-
-	return rateLimits, total, nil
-}
-
-// CreateUserRateLimit create user rate limit configuration
-func (s *UserRateLimitService) CreateUserRateLimit(rateLimit *UserRateLimit) error {
-	// validate configuration
-	if err := s.validateUserRateLimit(rateLimit); err != nil {
-		return err
-	}
-
-	// check if user already has configuration
-	var existing UserRateLimit
-	err := DB.Where("user_id = ?", rateLimit.UserID).First(&existing).Error
-	if err == nil {
-		return errors.New("user rate limit already exists")
-	}
-
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return err
-	}
-
-	return DB.Create(rateLimit).Error
-}
-
-// UpdateUserRateLimit update user rate limit configuration
-func (s *UserRateLimitService) UpdateUserRateLimit(userID string, rateLimit *UserRateLimit) error {
-	// validate configuration
-	if err := s.validateUserRateLimit(rateLimit); err != nil {
-		return err
-	}
-
-	rateLimit.UserID = userID
-
-	var existing UserRateLimit
-	err := DB.Where("user_id = ?", userID).First(&existing).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return DB.Create(rateLimit).Error
-		}
-		return err
-	}
-
-	rateLimit.ID = existing.ID
-	return DB.Save(rateLimit).Error
-}
-
-// DeleteUserRateLimit delete user rate limit configuration
-func (s *UserRateLimitService) DeleteUserRateLimit(userID string) error {
-	result := DB.Where("user_id = ?", userID).Delete(&UserRateLimit{})
-	if result.Error != nil {
-		return result.Error
-	}
-
-	if result.RowsAffected == 0 {
-		return errors.New("user rate limit not found")
-	}
-
-	return nil
-}
-
-// validateUserRateLimit validate user rate limit configuration
-func (s *UserRateLimitService) validateUserRateLimit(rateLimit *UserRateLimit) error {
-	if rateLimit.UserID == "" {
-		return errors.New("user ID is required")
-	}
-
-	if rateLimit.Priority != nil && (*rateLimit.Priority < 1 || *rateLimit.Priority > 10) {
-		return errors.New("priority must be between 1 and 10")
-	}
-
-	if rateLimit.QPS != nil && *rateLimit.QPS <= 0 {
-		return errors.New("QPS must be greater than 0")
-	}
-
-	return nil
 }
 
 // AgentService agent service
@@ -210,7 +73,6 @@ func generateRandomString(length int) string {
 	result := make([]byte, length)
 	for i := range result {
 		result[i] = charset[time.Now().UnixNano()%int64(len(charset))]
-		time.Sleep(1) // prevent timestamp duplication
 	}
 	return string(result)
 }

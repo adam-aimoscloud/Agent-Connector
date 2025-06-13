@@ -1,7 +1,7 @@
 package dataflow
 
 import (
-	"agent-connector/internal"
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -17,28 +17,24 @@ import (
 
 // DataFlowAPIHandler data flow API handler
 type DataFlowAPIHandler struct {
-	authService          *DataFlowAuthService
-	systemConfigService  *internal.SystemConfigService
-	userRateLimitService *internal.UserRateLimitService
+	authService *DataFlowAuthService
 }
 
 // NewDataFlowAPIHandler create data flow API handler
 func NewDataFlowAPIHandler() *DataFlowAPIHandler {
 	return &DataFlowAPIHandler{
-		authService:          NewDataFlowAuthService(),
-		systemConfigService:  &internal.SystemConfigService{},
-		userRateLimitService: &internal.UserRateLimitService{},
+		authService: NewDataFlowAuthService(),
 	}
 }
 
 // HandleChat handle chat request
+// Note: This handler expects authInfo to be set in context by AuthenticationMiddleware
+// and rate limiting to be handled by RateLimitMiddleware
 func (h *DataFlowAPIHandler) HandleChat(c *gin.Context) {
-	ctx := c.Request.Context()
-
-	// authenticate request
-	authInfo, err := h.authenticateRequest(c)
+	// get auth info from context (set by middleware)
+	authInfo, err := GetAuthInfoFromContext(c)
 	if err != nil {
-		h.respondWithError(c, http.StatusUnauthorized, "authentication_failed", err.Error())
+		h.respondWithError(c, http.StatusInternalServerError, "internal_error", err.Error())
 		return
 	}
 
@@ -52,18 +48,6 @@ func (h *DataFlowAPIHandler) HandleChat(c *gin.Context) {
 	// set authentication information
 	req.AgentID = authInfo.AgentID
 	req.APIKey = authInfo.APIKey
-
-	// check rate limit
-	rateLimitInfo, err := h.checkRateLimit(ctx, authInfo, &req)
-	if err != nil {
-		h.respondWithError(c, http.StatusInternalServerError, "rate_limit_error", err.Error())
-		return
-	}
-
-	if !rateLimitInfo.Allowed {
-		h.respondWithRateLimit(c, rateLimitInfo)
-		return
-	}
 
 	// determine request format
 	requestFormat := h.authService.DetermineRequestFormat(&req)
@@ -81,65 +65,6 @@ func (h *DataFlowAPIHandler) HandleChat(c *gin.Context) {
 	} else {
 		h.handleBlockingRequest(c, authInfo, &req, requestFormat)
 	}
-}
-
-// authenticateRequest authenticate request
-func (h *DataFlowAPIHandler) authenticateRequest(c *gin.Context) (*AuthInfo, error) {
-	// get AgentID from URL parameters or JSON body
-	agentID := c.Param("agent_id")
-	if agentID == "" {
-		agentID = c.Query("agent_id")
-	}
-
-	// get API Key from header
-	apiKey := c.GetHeader("Authorization")
-	if apiKey == "" {
-		apiKey = c.GetHeader("X-API-Key")
-	}
-
-	return h.authService.AuthenticateRequest(agentID, apiKey)
-}
-
-// checkRateLimit check rate limit
-func (h *DataFlowAPIHandler) checkRateLimit(ctx context.Context, authInfo *AuthInfo, req *DataFlowRequest) (*RateLimitInfo, error) {
-	// get system config
-	systemConfig, err := h.systemConfigService.GetSystemConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get system config: %w", err)
-	}
-
-	// get user ID
-	userID := h.authService.GetUserIDFromAPIKey(authInfo.APIKey)
-	authInfo.UserID = userID
-
-	// get user rate limit config
-	userRateLimit, err := h.userRateLimitService.GetUserRateLimit(userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user rate limit: %w", err)
-	}
-
-	rateLimitInfo := &RateLimitInfo{
-		Mode:     string(systemConfig.RateLimitMode),
-		AgentQPS: authInfo.Agent.QPS,
-		Allowed:  true,
-	}
-
-	// set user rate limit parameters
-	if userRateLimit != nil && userRateLimit.Enabled {
-		if userRateLimit.Priority != nil {
-			rateLimitInfo.UserPriority = *userRateLimit.Priority
-		}
-		if userRateLimit.QPS != nil {
-			rateLimitInfo.UserQPS = *userRateLimit.QPS
-		}
-	} else {
-		// use default config
-		rateLimitInfo.UserPriority = systemConfig.DefaultPriority
-		rateLimitInfo.UserQPS = systemConfig.DefaultQPS
-	}
-
-	// simplified rate limit check (in production environment, a complete rate limit service should be used)
-	return rateLimitInfo, nil
 }
 
 // handleStreamingRequest handle streaming request
@@ -265,13 +190,30 @@ func (h *DataFlowAPIHandler) buildForwardRequest(ctx context.Context, authInfo *
 		endpoint = "/v1/chat/completions"
 
 	case "dify":
+		// Ensure inputs is not nil
+		inputs := req.Inputs
+		if inputs == nil {
+			inputs = map[string]interface{}{}
+		}
+
+		// Set default response_mode if not provided
+		responseMode := req.ResponseMode
+		if responseMode == "" {
+			if req.Stream {
+				responseMode = "streaming"
+			} else {
+				responseMode = "blocking"
+			}
+		}
+
 		reqBody = map[string]interface{}{
 			"query":           req.Query,
 			"conversation_id": req.ConversationID,
 			"user":            req.User,
-			"inputs":          req.Inputs,
-			"response_mode":   req.ResponseMode,
+			"inputs":          inputs,
+			"response_mode":   responseMode,
 		}
+
 		endpoint = "/v1/chat-messages"
 
 	default:
@@ -313,23 +255,47 @@ func (h *DataFlowAPIHandler) streamResponse(c *gin.Context, stream io.ReadCloser
 		return
 	}
 
-	decoder := json.NewDecoder(stream)
-	for {
-		var chunk interface{}
-		if err := decoder.Decode(&chunk); err != nil {
-			if err == io.EOF {
-				break
-			}
-			h.writeSSEError(c, "decode_error", err.Error())
-			return
+	// Use bufio.Scanner to read line by line for SSE format
+	scanner := bufio.NewScanner(stream)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+
+		// Skip empty lines
+		if line == "" {
+			continue
 		}
 
-		// write SSE data
-		h.writeSSEData(c, chunk)
-		flusher.Flush()
+		// Check for SSE data format
+		if strings.HasPrefix(line, "data: ") {
+			dataStr := strings.TrimPrefix(line, "data: ")
+
+			// Check for end of stream
+			if dataStr == "[DONE]" {
+				h.writeSSEData(c, map[string]string{"event": "done"})
+				flusher.Flush()
+				break
+			}
+
+			// Parse JSON data
+			var chunk interface{}
+			if err := json.Unmarshal([]byte(dataStr), &chunk); err != nil {
+				h.writeSSEError(c, "decode_error", err.Error())
+				return
+			}
+
+			// Write SSE data
+			h.writeSSEData(c, chunk)
+			flusher.Flush()
+		}
 	}
 
-	// send done signal
+	// Check for scanner errors
+	if err := scanner.Err(); err != nil {
+		h.writeSSEError(c, "stream_read_error", err.Error())
+		return
+	}
+
+	// Send done signal if not already sent
 	h.writeSSEData(c, map[string]string{"event": "done"})
 	flusher.Flush()
 }
@@ -363,29 +329,6 @@ func (h *DataFlowAPIHandler) respondWithError(c *gin.Context, statusCode int, er
 		},
 	}
 	c.JSON(statusCode, response)
-}
-
-// respondWithRateLimit return rate limit response
-func (h *DataFlowAPIHandler) respondWithRateLimit(c *gin.Context, rateLimitInfo *RateLimitInfo) {
-	response := DataFlowResponse{
-		Code:    http.StatusTooManyRequests,
-		Message: "Rate limit exceeded",
-		Error: &APIError{
-			Type:    "rate_limit_exceeded",
-			Code:    "429",
-			Message: fmt.Sprintf("Rate limit exceeded. Wait time: %v", rateLimitInfo.WaitTime),
-		},
-	}
-
-	// set Rate Limit headers
-	c.Header("X-RateLimit-Mode", rateLimitInfo.Mode)
-	c.Header("X-RateLimit-User-QPS", strconv.Itoa(rateLimitInfo.UserQPS))
-	c.Header("X-RateLimit-Agent-QPS", strconv.Itoa(rateLimitInfo.AgentQPS))
-	if rateLimitInfo.WaitTime > 0 {
-		c.Header("Retry-After", strconv.Itoa(int(rateLimitInfo.WaitTime.Seconds())))
-	}
-
-	c.JSON(http.StatusTooManyRequests, response)
 }
 
 // HealthCheck health check

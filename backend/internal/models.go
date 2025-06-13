@@ -6,14 +6,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// RateLimitMode rate limit mode enum
-type RateLimitMode string
-
-const (
-	RateLimitModePriority RateLimitMode = "priority" // priority mode
-	RateLimitModeQPS      RateLimitMode = "qps"      // qps mode
-)
-
 // AgentType agent platform type enum
 type AgentType string
 
@@ -25,21 +17,7 @@ const (
 
 // SystemConfig system configuration table
 type SystemConfig struct {
-	ID              uint          `json:"id" gorm:"primaryKey;autoIncrement"`
-	RateLimitMode   RateLimitMode `json:"rate_limit_mode" gorm:"type:varchar(20);not null;default:'priority';comment:'rate limit mode: priority or qps'"`
-	DefaultPriority int           `json:"default_priority" gorm:"type:int;not null;default:5;comment:'default priority for users in priority mode (1-10)'"`
-	DefaultQPS      int           `json:"default_qps" gorm:"type:int;not null;default:10;comment:'default qps for users in qps mode'"`
-	CreatedAt       time.Time     `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt       time.Time     `json:"updated_at" gorm:"autoUpdateTime"`
-}
-
-// UserRateLimit user rate limit configuration table
-type UserRateLimit struct {
 	ID        uint      `json:"id" gorm:"primaryKey;autoIncrement"`
-	UserID    string    `json:"user_id" gorm:"type:varchar(255);not null;uniqueIndex;comment:'user id'"`
-	Priority  *int      `json:"priority,omitempty" gorm:"type:int;comment:'priority (1-10), used in priority mode'"`
-	QPS       *int      `json:"qps,omitempty" gorm:"type:int;comment:'qps limit, used in qps mode'"`
-	Enabled   bool      `json:"enabled" gorm:"type:boolean;not null;default:true;comment:'whether to enable'"`
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 }
@@ -70,8 +48,4 @@ func (Agent) TableName() string {
 
 func (SystemConfig) TableName() string {
 	return "system_configs"
-}
-
-func (UserRateLimit) TableName() string {
-	return "user_rate_limits"
 }

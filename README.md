@@ -1,5 +1,18 @@
 # Agent-Connector
 
+> **⚠️ DEVELOPMENT VERSION WARNING ⚠️**
+> 
+> **🚧 This project is currently in active development and NOT ready for production use.**
+> 
+> - Some features are still under testing and may not work as expected
+> - APIs and configurations may change without notice
+> - Data loss or system instability may occur
+> - Security features are not fully implemented
+> 
+> **Please use this only for development, testing, and evaluation purposes.**
+> 
+> ---
+
 A comprehensive AI agent management platform with React frontend and Go backend, supporting multiple AI service providers with unified interfaces, load balancing, and rate limiting.
 
 ## Project Structure
@@ -20,6 +33,8 @@ Agent-Connector/
 
 ## Features
 
+> **📋 Feature Status**: Some features are still in development or testing phase. See individual feature documentation for current status.
+
 ### Frontend (React Dashboard)
 - **User Management**: Role-based access control and user administration
 - **Agent Configuration**: Multi-provider AI agent setup (OpenAI, Dify, Custom)
@@ -35,6 +50,8 @@ Agent-Connector/
 - **Health Monitoring**: Built-in health checks and metrics
 
 ## Quick Start
+
+> **⚠️ REMINDER**: This is a development version. Do not use in production environments.
 
 ### Prerequisites
 - **Frontend**: Node.js 16+, npm 8+
@@ -203,6 +220,37 @@ This project includes a comprehensive `.gitignore` file that handles:
 - **Database**: MySQL for persistent data
 - **Cache**: Redis for session and rate limiting
 - **Configuration**: Environment-based with validation
+
+## Known Issues & Limitations
+
+> **⚠️ IMPORTANT**: This section lists current limitations and known issues.
+
+### Current Development Status
+- **🔄 Active Development**: Core features are being actively developed and tested
+- **🧪 Testing Phase**: Many features require additional testing before production readiness
+- **📝 Documentation**: Some documentation may be incomplete or outdated
+
+### Known Limitations
+- **Security**: Authentication and authorization systems are not production-ready
+- **Performance**: No performance optimization has been done for high-load scenarios
+- **Error Handling**: Error handling and recovery mechanisms are incomplete
+- **Data Validation**: Input validation and sanitization need improvement
+- **Logging**: Comprehensive logging and monitoring are not fully implemented
+- **Testing**: Unit tests and integration tests coverage is incomplete
+
+### Features Under Development
+- **Rate Limiting**: Advanced rate limiting algorithms and configurations
+- **Load Balancing**: Intelligent load balancing across multiple agents
+- **Monitoring**: Real-time monitoring and alerting systems
+- **API Versioning**: Proper API versioning and backward compatibility
+- **Data Migration**: Database migration and backup systems
+
+### Recommended Use Cases
+- ✅ **Development and Testing**: Perfect for development and testing environments
+- ✅ **Proof of Concept**: Suitable for demonstrating AI agent management concepts
+- ✅ **Learning**: Great for learning about microservices and AI agent architectures
+- ❌ **Production**: NOT recommended for production environments
+- ❌ **Critical Systems**: Should not be used for business-critical applications
 
 ## Contributing
 

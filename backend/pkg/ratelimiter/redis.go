@@ -56,7 +56,7 @@ end
 // NewRedisRateLimiter creates a new Redis-based rate limiter
 func NewRedisRateLimiter(config *Config) (*RedisRateLimiter, error) {
 	if config.Redis == nil {
-		return nil, fmt.Errorf("redis configuration is required for distributed rate limiter")
+		return nil, fmt.Errorf("Redis configuration is required")
 	}
 
 	// Create Redis client

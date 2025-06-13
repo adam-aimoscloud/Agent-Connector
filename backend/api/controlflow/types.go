@@ -40,36 +40,12 @@ type PaginationInfo struct {
 
 // SystemConfigRequest system configuration request structure
 type SystemConfigRequest struct {
-	RateLimitMode   string `json:"rate_limit_mode" binding:"required,oneof=priority qps"`
-	DefaultPriority int    `json:"default_priority" binding:"min=1,max=10"`
-	DefaultQPS      int    `json:"default_qps" binding:"min=1"`
+	// Currently no configurable fields, but keeping structure for future use
 }
 
 // SystemConfigResponse system configuration response structure
 type SystemConfigResponse struct {
-	ID              uint      `json:"id"`
-	RateLimitMode   string    `json:"rate_limit_mode"`
-	DefaultPriority int       `json:"default_priority"`
-	DefaultQPS      int       `json:"default_qps"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
-}
-
-// UserRateLimitRequest user rate limit configuration request structure
-type UserRateLimitRequest struct {
-	UserID   string `json:"user_id" binding:"required"`
-	Priority *int   `json:"priority,omitempty" binding:"omitempty,min=1,max=10"`
-	QPS      *int   `json:"qps,omitempty" binding:"omitempty,min=1"`
-	Enabled  bool   `json:"enabled"`
-}
-
-// UserRateLimitResponse user rate limit configuration response structure
-type UserRateLimitResponse struct {
 	ID        uint      `json:"id"`
-	UserID    string    `json:"user_id"`
-	Priority  *int      `json:"priority,omitempty"`
-	QPS       *int      `json:"qps,omitempty"`
-	Enabled   bool      `json:"enabled"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -139,45 +115,15 @@ type DatabaseHealthStatus struct {
 // ConvertFromInternalSystemConfig convert from internal model to response structure
 func ConvertFromInternalSystemConfig(config *internal.SystemConfig) *SystemConfigResponse {
 	return &SystemConfigResponse{
-		ID:              config.ID,
-		RateLimitMode:   string(config.RateLimitMode),
-		DefaultPriority: config.DefaultPriority,
-		DefaultQPS:      config.DefaultQPS,
-		CreatedAt:       config.CreatedAt,
-		UpdatedAt:       config.UpdatedAt,
+		ID:        config.ID,
+		CreatedAt: config.CreatedAt,
+		UpdatedAt: config.UpdatedAt,
 	}
 }
 
 // ConvertToInternalSystemConfig convert from request structure to internal model
 func ConvertToInternalSystemConfig(req *SystemConfigRequest) *internal.SystemConfig {
-	return &internal.SystemConfig{
-		RateLimitMode:   internal.RateLimitMode(req.RateLimitMode),
-		DefaultPriority: req.DefaultPriority,
-		DefaultQPS:      req.DefaultQPS,
-	}
-}
-
-// ConvertFromInternalUserRateLimit convert from internal model to response structure
-func ConvertFromInternalUserRateLimit(userLimit *internal.UserRateLimit) *UserRateLimitResponse {
-	return &UserRateLimitResponse{
-		ID:        userLimit.ID,
-		UserID:    userLimit.UserID,
-		Priority:  userLimit.Priority,
-		QPS:       userLimit.QPS,
-		Enabled:   userLimit.Enabled,
-		CreatedAt: userLimit.CreatedAt,
-		UpdatedAt: userLimit.UpdatedAt,
-	}
-}
-
-// ConvertToInternalUserRateLimit convert from request structure to internal model
-func ConvertToInternalUserRateLimit(req *UserRateLimitRequest) *internal.UserRateLimit {
-	return &internal.UserRateLimit{
-		UserID:   req.UserID,
-		Priority: req.Priority,
-		QPS:      req.QPS,
-		Enabled:  req.Enabled,
-	}
+	return &internal.SystemConfig{}
 }
 
 // ConvertFromInternalAgent convert from internal model to response structure
@@ -257,15 +203,6 @@ func ConvertFromInternalAgentList(agents []*internal.Agent, hideSecrets bool) []
 	result := make([]*AgentResponse, len(agents))
 	for i, agent := range agents {
 		result[i] = ConvertFromInternalAgent(agent, hideSecrets)
-	}
-	return result
-}
-
-// ConvertFromInternalUserRateLimitList convert from internal model list to response list
-func ConvertFromInternalUserRateLimitList(userLimits []*internal.UserRateLimit) []*UserRateLimitResponse {
-	result := make([]*UserRateLimitResponse, len(userLimits))
-	for i, userLimit := range userLimits {
-		result[i] = ConvertFromInternalUserRateLimit(userLimit)
 	}
 	return result
 }

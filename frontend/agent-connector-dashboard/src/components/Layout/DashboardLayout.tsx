@@ -21,7 +21,6 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   RobotOutlined,
-  ThunderboltOutlined,
   BellOutlined,
   ProfileOutlined,
 } from '@ant-design/icons';
@@ -56,14 +55,12 @@ const DashboardLayout: React.FC = () => {
       icon: <RobotOutlined />,
       label: 'Agent Configuration',
       path: '/agents',
-      permission: 'view',
     },
     {
-      key: '/rate-limits',
-      icon: <ThunderboltOutlined />,
-      label: 'Rate Limit Configuration',
-      path: '/rate-limits',
-      permission: 'view',
+      key: '/settings',
+      icon: <SettingOutlined />,
+      label: 'System Settings',
+      path: '/settings',
     },
     {
       key: '/profile',
@@ -71,13 +68,6 @@ const DashboardLayout: React.FC = () => {
       label: 'Profile',
       path: '/profile',
       permission: 'view_own_profile',
-    },
-    {
-      key: '/system',
-      icon: <SettingOutlined />,
-      label: 'System Settings',
-      path: '/system',
-      role: ['admin', 'operator'],
     },
   ];
 
@@ -148,9 +138,6 @@ const DashboardLayout: React.FC = () => {
           default:
             return false;
         }
-      }
-      if (item.role && state.user) {
-        return item.role.includes(state.user.role);
       }
       return true;
     });

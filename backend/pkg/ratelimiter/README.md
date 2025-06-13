@@ -1,21 +1,24 @@
-# Rate Limiter Module
+# Rate Limiter Package
 
-A distributed token bucket rate limiter implementation for Go, supporting both local and Redis-based distributed rate limiting.
+A high-performance, distributed rate limiter package for Go applications using Redis as the backend storage.
 
 ## Features
 
-- **Token Bucket Algorithm**: Implements the token bucket algorithm for smooth rate limiting with burst capability
-- **Local Rate Limiting**: In-memory rate limiting for single-instance applications
-- **Distributed Rate Limiting**: Redis-based rate limiting for multi-instance applications
-- **Multiple Keys**: Support for per-key rate limiting (e.g., per-user, per-API endpoint)
-- **Context Support**: All operations support Go context for cancellation and timeouts
-- **High Performance**: Optimized for high throughput with minimal allocations
-- **Memory Efficient**: Automatic cleanup of unused limiters to prevent memory leaks
-- **Thread Safe**: All operations are safe for concurrent use
+- **Distributed Rate Limiting**: Uses Redis for distributed rate limiting across multiple application instances
+- **Token Bucket Algorithm**: Implements the token bucket algorithm for smooth rate limiting
+- **Per-Key Rate Limiting**: Independent rate limits for different keys (users, IPs, API endpoints, etc.)
+- **Flexible Configuration**: Configurable rate and burst parameters
+- **Context Support**: Full context.Context support for cancellation and timeouts
+- **Thread-Safe**: Safe for concurrent use across multiple goroutines
+- **Lua Script Optimization**: Uses Redis Lua scripts for atomic operations
+
+## Installation
+
+```bash
+go get agent-connector/pkg/ratelimiter
+```
 
 ## Quick Start
-
-### Local Rate Limiter
 
 ```go
 package main
@@ -24,7 +27,6 @@ import (
     "context"
     "fmt"
     "log"
-    
     "agent-connector/pkg/ratelimiter"
 )
 
@@ -32,22 +34,30 @@ func main() {
     // Create configuration
     config := &ratelimiter.Config{
         Rate:  10.0, // 10 requests per second
-        Burst: 5,    // Allow burst of 5 requests
+        Burst: 20,   // Allow burst of 20 requests
+        Redis: &ratelimiter.RedisConfig{
+            Addr:     "localhost:6379",
+            Password: "",
+            DB:       0,
+        },
     }
-    
-    // Create local rate limiter
-    limiter := ratelimiter.NewLocalRateLimiter(config)
+
+    // Create rate limiter
+    limiter, err := ratelimiter.NewRateLimiter(ratelimiter.RedisType, config)
+    if err != nil {
+        log.Fatal(err)
+    }
     defer limiter.Close()
-    
+
     ctx := context.Background()
     key := "user:123"
-    
+
     // Check if request is allowed
     allowed, err := limiter.Allow(ctx, key)
     if err != nil {
         log.Fatal(err)
     }
-    
+
     if allowed {
         fmt.Println("Request allowed")
     } else {
@@ -56,257 +66,216 @@ func main() {
 }
 ```
 
-### Distributed Rate Limiter (Redis)
+## Configuration
 
-```go
-package main
-
-import (
-    "context"
-    "fmt"
-    "log"
-    "time"
-    
-    "agent-connector/pkg/ratelimiter"
-)
-
-func main() {
-    // Create configuration with Redis
-    config := &ratelimiter.Config{
-        Rate:  100.0, // 100 requests per second
-        Burst: 20,    // Allow burst of 20 requests
-        Redis: &ratelimiter.RedisConfig{
-            Addr:            "localhost:6379",
-            Password:        "",
-            DB:              0,
-            PoolSize:        10,
-            MinIdleConns:    2,
-            ConnMaxIdleTime: 30 * time.Minute,
-        },
-    }
-    
-    // Create distributed rate limiter
-    limiter, err := ratelimiter.NewRedisRateLimiter(config)
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer limiter.Close()
-    
-    ctx := context.Background()
-    key := "api:/users"
-    
-    // Check multiple requests
-    allowed, err := limiter.AllowN(ctx, key, 5)
-    if err != nil {
-        log.Fatal(err)
-    }
-    
-    fmt.Printf("5 requests allowed: %v\n", allowed)
-}
-```
-
-### Using the Factory Function
-
-```go
-package main
-
-import (
-    "context"
-    "log"
-    
-    "agent-connector/pkg/ratelimiter"
-)
-
-func main() {
-    config := ratelimiter.DefaultConfig()
-    
-    // Create local rate limiter
-    limiter, err := ratelimiter.NewRateLimiter(ratelimiter.LocalType, config)
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer limiter.Close()
-    
-    // Use the limiter
-    ctx := context.Background()
-    allowed, _ := limiter.Allow(ctx, "test-key")
-    
-    if allowed {
-        // Process request
-    }
-}
-```
-
-## API Reference
-
-### RateLimiter Interface
-
-The main interface for rate limiting operations:
-
-```go
-type RateLimiter interface {
-    Allow(ctx context.Context, key string) (bool, error)
-    AllowN(ctx context.Context, key string, n int) (bool, error)
-    Wait(ctx context.Context, key string) error
-    WaitN(ctx context.Context, key string, n int) error
-    Reserve(ctx context.Context, key string) (*Reservation, error)
-    ReserveN(ctx context.Context, key string, n int) (*Reservation, error)
-    Close() error
-}
-```
-
-#### Methods
-
-- **Allow(ctx, key)**: Check if a single request is allowed
-- **AllowN(ctx, key, n)**: Check if n requests are allowed
-- **Wait(ctx, key)**: Block until a request can be processed
-- **WaitN(ctx, key, n)**: Block until n requests can be processed
-- **Reserve(ctx, key)**: Reserve a token and get a reservation
-- **ReserveN(ctx, key, n)**: Reserve n tokens and get a reservation
-- **Close()**: Clean up resources
-
-### Configuration
+### Config Structure
 
 ```go
 type Config struct {
     Rate  float64      // Requests per second
     Burst int          // Maximum burst size
-    Redis *RedisConfig // Redis configuration (optional)
+    Redis *RedisConfig // Redis configuration (required)
 }
 
 type RedisConfig struct {
     Addr            string        // Redis server address
-    Password        string        // Redis password
+    Password        string        // Redis password (optional)
     DB              int           // Redis database number
-    PoolSize        int           // Maximum connections in pool
+    PoolSize        int           // Connection pool size
     MinIdleConns    int           // Minimum idle connections
-    ConnMaxIdleTime time.Duration // Maximum idle time for connections
+    ConnMaxIdleTime time.Duration // Connection max idle time
 }
 ```
 
-### Factory Functions
+### Default Configuration
 
 ```go
-// Create a rate limiter with specified type
-func NewRateLimiter(limiterType RateLimiterType, config *Config) (RateLimiter, error)
-
-// Create a local rate limiter directly
-func NewLocalRateLimiter(config *Config) *LocalRateLimiter
-
-// Create a Redis rate limiter directly
-func NewRedisRateLimiter(config *Config) (*RedisRateLimiter, error)
-
-// Validate configuration
-func ValidateConfig(config *Config) error
-
 // Get default configuration
-func DefaultConfig() *Config
+config := ratelimiter.DefaultConfig("localhost:6379")
 
-// Get default Redis configuration
-func DefaultRedisConfig(addr string) *RedisConfig
+// Or create custom configuration
+config := &ratelimiter.Config{
+    Rate:  100.0, // 100 requests per second
+    Burst: 200,   // Allow burst of 200 requests
+    Redis: &ratelimiter.RedisConfig{
+        Addr:            "localhost:6379",
+        Password:        "",
+        DB:              0,
+        PoolSize:        10,
+        MinIdleConns:    2,
+        ConnMaxIdleTime: 30 * time.Minute,
+    },
+}
 ```
 
-## Usage Patterns
+## Usage Examples
+
+### Basic Usage
+
+```go
+// Create rate limiter
+limiter, err := ratelimiter.NewRateLimiter(ratelimiter.RedisType, config)
+if err != nil {
+    log.Fatal(err)
+}
+defer limiter.Close()
+
+ctx := context.Background()
+
+// Check if request is allowed
+allowed, err := limiter.Allow(ctx, "user:123")
+if err != nil {
+    log.Fatal(err)
+}
+
+if !allowed {
+    // Handle rate limit exceeded
+    return
+}
+
+// Process request
+```
+
+### Waiting for Rate Limit
+
+```go
+// Wait until request is allowed (blocks if necessary)
+err := limiter.Wait(ctx, "user:123")
+if err != nil {
+    log.Fatal(err)
+}
+
+// Request is now allowed, proceed
+```
+
+### Reservation Pattern
+
+```go
+// Make a reservation
+reservation, err := limiter.Reserve(ctx, "user:123")
+if err != nil {
+    log.Fatal(err)
+}
+
+if !reservation.OK {
+    // Rate limit would be exceeded
+    return
+}
+
+if reservation.Delay > 0 {
+    // Wait for the required delay
+    time.Sleep(reservation.Delay)
+}
+
+// Proceed with request
+```
+
+### Multiple Tokens
+
+```go
+// Request multiple tokens at once
+allowed, err := limiter.AllowN(ctx, "user:123", 5)
+if err != nil {
+    log.Fatal(err)
+}
+
+if !allowed {
+    // Not enough tokens available
+    return
+}
+```
+
+## Rate Limiting Strategies
 
 ### Per-User Rate Limiting
 
 ```go
-// Rate limit per user ID
-userID := "user123"
-key := fmt.Sprintf("user:%s", userID)
-allowed, err := limiter.Allow(ctx, key)
+userID := "user:123"
+allowed, err := limiter.Allow(ctx, userID)
+```
+
+### Per-IP Rate Limiting
+
+```go
+clientIP := "192.168.1.100"
+allowed, err := limiter.Allow(ctx, clientIP)
 ```
 
 ### Per-API Endpoint Rate Limiting
 
 ```go
-// Rate limit per API endpoint
-endpoint := "/api/users"
-key := fmt.Sprintf("endpoint:%s", endpoint)
-allowed, err := limiter.Allow(ctx, key)
+endpoint := "api:/users"
+allowed, err := limiter.Allow(ctx, endpoint)
 ```
 
 ### Combined Rate Limiting
 
 ```go
 // Rate limit per user per endpoint
-userID := "user123"
-endpoint := "/api/users"
 key := fmt.Sprintf("user:%s:endpoint:%s", userID, endpoint)
 allowed, err := limiter.Allow(ctx, key)
 ```
 
-### Graceful Degradation
+## Error Handling
 
 ```go
-// Wait with timeout for rate limit
-ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-defer cancel()
-
-err := limiter.Wait(ctx, key)
-if err == context.DeadlineExceeded {
-    // Handle timeout - maybe return cached data or error
-    return handleRateLimitTimeout()
-}
-```
-
-### Reservation Pattern
-
-```go
-// Reserve tokens in advance
-reservation, err := limiter.ReserveN(ctx, key, 3)
+allowed, err := limiter.Allow(ctx, "user:123")
 if err != nil {
-    return err
-}
-
-if reservation.Delay > 0 {
-    // Wait for the reservation to be ready
-    time.Sleep(reservation.Delay)
-}
-
-// Process the request
-if reservation.OK {
-    return processRequest()
+    // Handle different types of errors
+    switch {
+    case errors.Is(err, context.Canceled):
+        // Context was canceled
+    case errors.Is(err, context.DeadlineExceeded):
+        // Context deadline exceeded
+    default:
+        // Other errors (Redis connection issues, etc.)
+        log.Printf("Rate limiter error: %v", err)
+    }
+    return
 }
 ```
 
-## Performance
+## Best Practices
 
-The rate limiter is designed for high performance:
+1. **Use Meaningful Keys**: Choose descriptive keys that clearly identify what is being rate limited
+2. **Handle Errors Gracefully**: Always check for errors and have fallback behavior
+3. **Set Appropriate Timeouts**: Use context with timeouts for Redis operations
+4. **Monitor Redis Health**: Ensure Redis is healthy and accessible
+5. **Choose Appropriate Rates**: Set rate limits based on your application's capacity
+6. **Use Connection Pooling**: Configure appropriate pool sizes for your load
 
-- **Local**: >1M ops/sec per core for single key, >10M ops/sec for multiple keys
-- **Redis**: ~50K ops/sec depending on Redis performance and network latency
-- **Memory**: Minimal allocations, automatic cleanup of unused limiters
-- **Concurrency**: Lock-free hot path for local limiter, atomic operations for Redis
+## Performance Considerations
+
+- **Redis Performance**: Rate limiter performance depends on Redis performance
+- **Network Latency**: Consider network latency between your application and Redis
+- **Connection Pooling**: Use appropriate connection pool settings
+- **Lua Scripts**: The package uses optimized Lua scripts for atomic operations
 
 ## Testing
 
-Run the test suite:
+Run the tests:
 
 ```bash
-cd backend
-go test -v ./pkg/ratelimiter/...
+# Run all tests (requires Redis)
+go test ./...
+
+# Run tests with coverage
+go test -cover ./...
+
+# Run benchmarks (requires Redis)
+go test -bench=. ./...
 ```
 
-Run benchmarks:
+## Redis Requirements
 
-```bash
-cd backend
-go test -bench=. -benchmem ./pkg/ratelimiter/...
-```
+- Redis 2.6.0 or later (for Lua script support)
+- Stable network connection between application and Redis
+- Sufficient Redis memory for storing rate limit data
 
-Generate coverage report:
+## Thread Safety
 
-```bash
-cd backend
-go test -coverprofile=coverage.out ./pkg/ratelimiter/...
-go tool cover -html=coverage.out
-```
-
-## Examples
-
-See the `example_test.go` file for complete examples and usage patterns.
+The rate limiter is thread-safe and can be used concurrently from multiple goroutines.
 
 ## License
 
-This module is part of the Agent Connector project. 
+This package is part of the Agent-Connector project. 

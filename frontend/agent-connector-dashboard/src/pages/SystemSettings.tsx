@@ -42,19 +42,19 @@ const SystemSettings: React.FC = () => {
   const [systemConfig, setSystemConfig] = useState<SystemConfig | null>(null);
   const [form] = Form.useForm();
 
-  // 加载系统统计信息
+  // Load system statistics
   const loadSystemStats = async () => {
     try {
       const response = await systemApi.getStats();
       if (response.data.code === 200) {
         setSystemStats(response.data.data || {});
       } else {
-        throw new Error(response.data.message || '获取系统统计失败');
+        throw new Error(response.data.message || 'Failed to get system statistics');
       }
     } catch (error: any) {
       console.error('Failed to load system stats:', error);
-      message.error(error.response?.data?.message || '加载系统统计失败');
-      // 设置空数据状态
+      message.error(error.response?.data?.message || 'Failed to load system statistics');
+      // Set empty data state
       setSystemStats({
         total_users: 0,
         active_users: 0,
@@ -72,7 +72,7 @@ const SystemSettings: React.FC = () => {
     }
   };
 
-  // 加载系统配置
+  // Load system configuration
   const loadSystemConfig = async () => {
     try {
       const response = await controlFlowApi_endpoints.getSystemConfig();
@@ -82,11 +82,11 @@ const SystemSettings: React.FC = () => {
           form.setFieldsValue(response.data.data);
         }
       } else {
-        throw new Error(response.data.message || '获取系统配置失败');
+        throw new Error(response.data.message || 'Failed to get system configuration');
       }
     } catch (error: any) {
       console.error('Failed to load system config:', error);
-      message.error(error.response?.data?.message || '加载系统配置失败');
+      message.error(error.response?.data?.message || 'Failed to load system configuration');
       setSystemConfig(null);
     }
   };
@@ -97,51 +97,51 @@ const SystemSettings: React.FC = () => {
     loadServiceStatus();
   }, []);
 
-  // 保存系统配置
+  // Save system configuration
   const handleSaveConfig = async (values: any) => {
     setLoading(true);
     try {
       await controlFlowApi_endpoints.updateSystemConfig(values);
-      message.success('系统配置保存成功');
+      message.success('System configuration saved successfully');
       await loadSystemConfig();
     } catch (error) {
       console.error('Save system config failed:', error);
-      message.error('系统配置保存失败');
+      message.error('System configuration saved failed');
     } finally {
       setLoading(false);
     }
   };
 
-  // 清理过期会话
+  // Clean up expired sessions
   const handleCleanupSessions = async () => {
     setLoading(true);
     try {
       await systemApi.cleanupSessions();
-      message.success('过期会话清理完成');
+      message.success('Expired sessions cleaned up');
       await loadSystemStats();
     } catch (error) {
       console.error('Cleanup sessions failed:', error);
-      message.error('清理过期会话失败');
+      message.error('Failed to clean up expired sessions');
     } finally {
       setLoading(false);
     }
   };
 
-  // 获取成功率
+  // Get success rate
   const getSuccessRate = () => {
     const total = systemStats.total_requests_today || 0;
     const successful = systemStats.successful_requests_today || 0;
     return total > 0 ? ((successful / total) * 100).toFixed(1) : '0.0';
   };
 
-  // 获取状态颜色
+  // Get status color
   const getStatusColor = (value: number, thresholds: [number, number]) => {
     if (value < thresholds[0]) return '#52c41a';
     if (value < thresholds[1]) return '#faad14';
     return '#ff4d4f';
   };
 
-  // 系统服务状态
+  // System service status
   const [serviceStatus, setServiceStatus] = useState<any[]>([]);
 
   const loadServiceStatus = async () => {
@@ -150,39 +150,39 @@ const SystemSettings: React.FC = () => {
       if (response.data.code === 200) {
         setServiceStatus(response.data.data || []);
       } else {
-        throw new Error(response.data.message || '获取服务状态失败');
+        throw new Error(response.data.message || 'Failed to get service status');
       }
     } catch (error: any) {
       console.error('Failed to load service status:', error);
-      message.error(error.response?.data?.message || '加载服务状态失败');
+      message.error(error.response?.data?.message || 'Failed to load service status');
       setServiceStatus([]);
     }
   };
 
   const serviceColumns = [
     {
-      title: '服务名称',
+      title: 'Service name',
       dataIndex: 'name',
       key: 'name',
     },
     {
-      title: '端口',
+      title: 'Port',
       dataIndex: 'port',
       key: 'port',
       render: (port: number) => <Text code>{port}</Text>,
     },
     {
-      title: '状态',
+      title: 'Status',
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => (
         <Tag color={status === 'running' ? 'green' : 'red'}>
-          {status === 'running' ? '运行中' : '已停止'}
+          {status === 'running' ? 'Running' : 'Stopped'}
         </Tag>
       ),
     },
     {
-      title: '运行时间',
+      title: 'Uptime',
       dataIndex: 'uptime',
       key: 'uptime',
     },
@@ -190,53 +190,53 @@ const SystemSettings: React.FC = () => {
 
   return (
     <div>
-      <Title level={2}>系统设置</Title>
+      <Title level={2}>System settings</Title>
       
       <Tabs defaultActiveKey="overview">
-        <TabPane tab="系统概览" key="overview" icon={<BarChartOutlined />}>
-          {/* 系统统计卡片 */}
+        <TabPane tab="System overview" key="overview" icon={<BarChartOutlined />}>
+          {/* System statistics card */}
           <Row gutter={16} style={{ marginBottom: '24px' }}>
             <Col xs={24} sm={12} md={6}>
               <Card>
                 <Statistic
-                  title="总用户数"
+                  title="Total users"
                   value={systemStats.total_users || 0}
                   prefix={<DatabaseOutlined />}
                 />
                 <div style={{ marginTop: '8px' }}>
-                  <Text type="secondary">活跃用户: {systemStats.active_users || 0}</Text>
+                  <Text type="secondary">Active users: {systemStats.active_users || 0}</Text>
                 </div>
               </Card>
             </Col>
             <Col xs={24} sm={12} md={6}>
               <Card>
                 <Statistic
-                  title="Agent数量"
+                  title="Agent number"
                   value={systemStats.active_agents || 0}
                   suffix={`/ ${systemStats.total_agents || 0}`}
                   prefix={<ThunderboltOutlined />}
                 />
                 <div style={{ marginTop: '8px' }}>
-                  <Text type="secondary">活跃Agent</Text>
+                  <Text type="secondary">Active Agent</Text>
                 </div>
               </Card>
             </Col>
             <Col xs={24} sm={12} md={6}>
               <Card>
                 <Statistic
-                  title="今日请求"
+                  title="Today requests"
                   value={systemStats.total_requests_today || 0}
                   prefix={<SecurityScanOutlined />}
                 />
                 <div style={{ marginTop: '8px' }}>
-                  <Text type="secondary">成功率: {getSuccessRate()}%</Text>
+                  <Text type="secondary">Success rate: {getSuccessRate()}%</Text>
                 </div>
               </Card>
             </Col>
             <Col xs={24} sm={12} md={6}>
               <Card>
                 <Statistic
-                  title="系统运行时间"
+                  title="System uptime"
                   value={systemStats.uptime || '0'}
                   prefix={<SettingOutlined />}
                 />
@@ -244,10 +244,10 @@ const SystemSettings: React.FC = () => {
             </Col>
           </Row>
 
-          {/* 系统资源使用情况 */}
+          {/* System resource usage */}
           <Row gutter={16} style={{ marginBottom: '24px' }}>
             <Col xs={24} md={8}>
-              <Card title="CPU使用率">
+              <Card title="CPU usage">
                 <Progress
                   type="circle"
                   percent={systemStats.cpu_usage || 0}
@@ -256,7 +256,7 @@ const SystemSettings: React.FC = () => {
               </Card>
             </Col>
             <Col xs={24} md={8}>
-              <Card title="内存使用率">
+              <Card title="Memory usage">
                 <Progress
                   type="circle"
                   percent={systemStats.memory_usage || 0}
@@ -265,7 +265,7 @@ const SystemSettings: React.FC = () => {
               </Card>
             </Col>
             <Col xs={24} md={8}>
-              <Card title="磁盘使用率">
+              <Card title="Disk usage">
                 <Progress
                   type="circle"
                   percent={systemStats.disk_usage || 0}
@@ -275,8 +275,8 @@ const SystemSettings: React.FC = () => {
             </Col>
           </Row>
 
-          {/* 系统服务状态 */}
-          <Card title="系统服务状态">
+          {/* System service status */}
+          <Card title="System service status">
             <Table
               columns={serviceColumns}
               dataSource={serviceStatus}
@@ -287,12 +287,12 @@ const SystemSettings: React.FC = () => {
           </Card>
         </TabPane>
 
-        <TabPane tab="系统配置" key="config" icon={<SettingOutlined />}>
+        <TabPane tab="System configuration" key="config" icon={<SettingOutlined />}>
           <PermissionGuard permission="system_management">
-            <Card title="限流系统配置" extra={<SettingOutlined />}>
+            <Card title="Rate limit system configuration" extra={<SettingOutlined />}>
               <Alert
-                message="配置说明"
-                description="修改系统限流配置将影响所有API请求的处理方式，请谨慎操作。"
+                message="Configuration instructions"
+                description="Modifying the system rate limit configuration will affect the processing of all API requests, please proceed with caution."
                 type="warning"
                 showIcon
                 style={{ marginBottom: '24px' }}
@@ -308,31 +308,31 @@ const SystemSettings: React.FC = () => {
                   <Col span={12}>
                     <Form.Item
                       name="rate_limit_mode"
-                      label="限流模式"
-                      rules={[{ required: true, message: '请选择限流模式' }]}
-                      tooltip="不同限流模式适用于不同的业务场景"
+                      label="Rate limit mode"
+                      rules={[{ required: true, message: 'Please select rate limit mode' }]}
+                      tooltip="Different rate limit modes are suitable for different business scenarios"
                     >
-                      <Select placeholder="请选择限流模式">
-                        <Option value="priority">优先级模式</Option>
-                        <Option value="fair">公平模式</Option>
-                        <Option value="weighted">加权模式</Option>
+                      <Select placeholder="Please select rate limit mode">
+                        <Option value="priority">Priority mode</Option>
+                        <Option value="fair">Fair mode</Option>
+                        <Option value="weighted">Weighted mode</Option>
                       </Select>
                     </Form.Item>
                   </Col>
                   <Col span={12}>
                     <Form.Item
                       name="default_priority"
-                      label="默认优先级"
+                      label="Default priority"
                       rules={[
-                        { required: true, message: '请输入默认优先级' },
-                        { type: 'number', min: 1, max: 10, message: '优先级必须在1-10之间' },
+                        { required: true, message: 'Please enter default priority' },
+                        { type: 'number', min: 1, max: 10, message: 'Priority must be between 1 and 10' },
                       ]}
                     >
                       <InputNumber
                         min={1}
                         max={10}
                         style={{ width: '100%' }}
-                        placeholder="请输入默认优先级(1-10)"
+                        placeholder="Please enter default priority (1-10)"
                       />
                     </Form.Item>
                   </Col>
@@ -340,17 +340,17 @@ const SystemSettings: React.FC = () => {
 
                 <Form.Item
                   name="default_qps"
-                  label="默认QPS限制"
+                  label="Default QPS limit"
                   rules={[
-                    { required: true, message: '请输入默认QPS限制' },
-                    { type: 'number', min: 1, message: 'QPS必须大于0' },
+                    { required: true, message: 'Please enter default QPS limit' },
+                    { type: 'number', min: 1, message: 'QPS must be greater than 0' },
                   ]}
-                  tooltip="每秒查询数限制，建议根据系统性能设置"
+                  tooltip="Query per second limit, it is recommended to set it according to the system performance"
                 >
                   <InputNumber
                     min={1}
                     style={{ width: '100%' }}
-                    placeholder="请输入默认QPS限制"
+                    placeholder="Please enter default QPS limit"
                     formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                   />
                 </Form.Item>
@@ -363,10 +363,10 @@ const SystemSettings: React.FC = () => {
                       loading={loading}
                       icon={<SaveOutlined />}
                     >
-                      保存配置
+                      Save configuration
                     </Button>
                     <Button icon={<ReloadOutlined />} onClick={loadSystemConfig}>
-                      重新加载
+                      Reload
                     </Button>
                   </Space>
                 </Form.Item>
@@ -375,14 +375,14 @@ const SystemSettings: React.FC = () => {
           </PermissionGuard>
         </TabPane>
 
-        <TabPane tab="系统维护" key="maintenance" icon={<DatabaseOutlined />}>
+        <TabPane tab="System maintenance" key="maintenance" icon={<DatabaseOutlined />}>
           <PermissionGuard permission="system_management">
             <Row gutter={16}>
               <Col xs={24} md={12}>
-                <Card title="数据库维护" extra={<DatabaseOutlined />}>
+                <Card title="Database maintenance" extra={<DatabaseOutlined />}>
                   <Paragraph>
                     <Text type="secondary">
-                      定期清理过期数据和会话，保持系统性能。
+                      Periodically clean up expired data and sessions to maintain system performance.
                     </Text>
                   </Paragraph>
                   
@@ -394,14 +394,14 @@ const SystemSettings: React.FC = () => {
                       loading={loading}
                       block
                     >
-                      清理过期会话
+                      Clean up expired sessions
                     </Button>
                     
                     <Alert
-                      message="上次备份时间"
+                      message="Last backup time"
                       description={systemStats.last_backup ? 
                         dayjs(systemStats.last_backup).format('YYYY-MM-DD HH:mm:ss') : 
-                        '暂无备份记录'
+                        'No backup record'
                       }
                       type="info"
                       showIcon
@@ -411,23 +411,23 @@ const SystemSettings: React.FC = () => {
               </Col>
 
               <Col xs={24} md={12}>
-                <Card title="系统监控" extra={<SecurityScanOutlined />}>
+                <Card title="System monitoring" extra={<SecurityScanOutlined />}>
                   <Paragraph>
                     <Text type="secondary">
-                      监控系统关键指标，确保服务稳定运行。
+                      Monitor system key indicators to ensure stable service operation.
                     </Text>
                   </Paragraph>
 
                   <Space direction="vertical" style={{ width: '100%' }}>
                     <div>
-                      <Text strong>请求成功率: </Text>
+                      <Text strong>Request success rate: </Text>
                       <Tag color={parseFloat(getSuccessRate()) >= 95 ? 'green' : 'orange'}>
                         {getSuccessRate()}%
                       </Tag>
                     </div>
                     
                     <div>
-                      <Text strong>失败请求数: </Text>
+                      <Text strong>Failed request number: </Text>
                       <Tag color={systemStats.failed_requests_today > 100 ? 'red' : 'green'}>
                         {systemStats.failed_requests_today || 0}
                       </Tag>
@@ -438,7 +438,7 @@ const SystemSettings: React.FC = () => {
                       onClick={loadSystemStats}
                       block
                     >
-                      刷新统计数据
+                      Refresh statistics data
                     </Button>
                   </Space>
                 </Card>

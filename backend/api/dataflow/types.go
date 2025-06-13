@@ -7,7 +7,7 @@ import (
 
 // DataFlowRequest data flow API common request structure
 type DataFlowRequest struct {
-	AgentID string `json:"agent_id" binding:"required"`
+	AgentID string `json:"agent_id,omitempty"`
 	APIKey  string `json:"-"` // get from header
 
 	// OpenAI Compatible fields
@@ -113,7 +113,6 @@ type DifyStreamResponse struct {
 // AuthInfo authentication information
 type AuthInfo struct {
 	AgentID   string
-	UserID    string
 	APIKey    string
 	Agent     *AgentInfo
 	Timestamp time.Time
@@ -130,27 +129,6 @@ type AgentInfo struct {
 	Enabled          bool
 	SupportStreaming bool
 	ResponseFormat   string
-}
-
-// RateLimitInfo rate limit information
-type RateLimitInfo struct {
-	Mode             string // "priority" or "qps"
-	UserPriority     int
-	UserQPS          int
-	AgentQPS         int
-	CurrentUserRate  float64
-	CurrentAgentRate float64
-	Allowed          bool
-	WaitTime         time.Duration
-}
-
-// RequestContext request context
-type RequestContext struct {
-	RequestID     string
-	AuthInfo      *AuthInfo
-	RateLimitInfo *RateLimitInfo
-	StartTime     time.Time
-	Agent         *AgentInfo
 }
 
 // StreamData streaming data wrapper
